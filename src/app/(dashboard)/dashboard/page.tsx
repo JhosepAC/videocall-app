@@ -76,7 +76,6 @@ export default async function DashboardPage() {
                             <p className="text-slate-500 dark:text-slate-400 text-sm">Inicia una sala instantánea y comparte el enlace con los demás participantes.</p>
                         </div>
 
-                        {/* This button will later be connected to UUID generation */}
                         <form action="/api/create-room" method="POST" className="mt-4">
                             <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-md">
                                 Nueva Reunión
@@ -95,7 +94,6 @@ export default async function DashboardPage() {
                             <p className="text-slate-500 dark:text-slate-400 text-sm">Ingresa el código o enlace de la sala a la que fuiste invitado.</p>
                         </div>
 
-                        {/* Join form (Client-side logic simulated on server for now) */}
                         <form className="mt-4 flex gap-2" action={async (formData) => {
                             'use server'
                             const roomCode = formData.get('roomCode')
