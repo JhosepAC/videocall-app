@@ -78,7 +78,7 @@ export default async function DashboardPage() {
 
                         {/* This button will later be connected to UUID generation */}
                         <form action="/api/create-room" method="POST" className="mt-4">
-                            <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-md">
+                            <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-md">
                                 Nueva Reunión
                             </Button>
                         </form>
