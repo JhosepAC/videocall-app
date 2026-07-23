@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function RoomPage({ params }: { params: { id: string } }) {
     return (
-        <div className="min-h-screen bg-slate-950">
+        <div className="min-h-screen bg-background">
             <RoomClient roomId={params.id} />
         </div>
     )
