@@ -182,10 +182,10 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <CameraOff className="w-12 h-12 mb-2 stroke-[1.5]" />
                             </div>
                         )}
-                        <div className="absolute bottom-3 left-3 bg-overlay/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-glass/20">
-                            <p className="text-xs font-semibold text-foreground leading-tight">{displayName}</p>
+                        <div className="absolute bottom-3 left-3 bg-white px-3 py-1.5 rounded-lg shadow-md">
+                            <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
                             {displayUsername && (
-                                <p className="text-[10px] text-muted-foreground/80 leading-tight">{displayUsername}</p>
+                                <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
                             )}
                         </div>
                     </div>
