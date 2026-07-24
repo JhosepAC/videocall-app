@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useCallback, useSyncExternalStore, useRef } from 'react'
+import { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import type { Locale } from '@/i18n/types'
 import type { NestedTranslations } from '@/i18n/types'
 import { en } from '@/i18n/en'
@@ -8,32 +8,9 @@ import { es } from '@/i18n/es'
 
 const STORAGE_KEY = 'lang'
 
-function getInitialLocale(): Locale {
+function getSystemLocale(): Locale {
   if (typeof window === 'undefined') return 'en'
-  const stored = localStorage.getItem(STORAGE_KEY) as Locale | null
-  if (stored === 'en' || stored === 'es') return stored
-  const system = navigator.language?.startsWith('es') ? 'es' : 'en'
-  return system
-}
-
-let currentLocale = getInitialLocale()
-const listeners = new Set<() => void>()
-
-function subscribe(fn: () => void) {
-  listeners.add(fn)
-  return () => listeners.delete(fn)
-}
-
-function getSnapshot() {
-  return currentLocale
-}
-
-function getServerSnapshot() {
-  return 'en'
-}
-
-function emitChange() {
-  listeners.forEach((fn) => fn())
+  return navigator.language?.startsWith('es') ? 'es' : 'en'
 }
 
 function resolvePath(obj: NestedTranslations, path: string): string {
@@ -50,30 +27,51 @@ function resolvePath(obj: NestedTranslations, path: string): string {
 
 const dictionaries: Record<Locale, NestedTranslations> = { en, es }
 
-const I18nContext = createContext<{
+interface I18nContextValue {
   locale: Locale
   t: (key: string) => string
   setLocale: (l: Locale) => void
-} | null>(null)
+}
+
+const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const locale = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot) as Locale
-  const dictRef = useRef(dictionaries[locale])
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') return 'en'
+    const stored = localStorage.getItem(STORAGE_KEY) as Locale | null
+    if (stored === 'en' || stored === 'es') return stored
+    return getSystemLocale()
+  })
 
-  if (dictRef.current !== dictionaries[locale]) {
-    dictRef.current = dictionaries[locale]
-  }
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', locale)
+  }, [locale])
 
   const setLocale = useCallback((l: Locale) => {
-    currentLocale = l
+    setLocaleState(l)
     document.documentElement.setAttribute('lang', l)
     try { localStorage.setItem(STORAGE_KEY, l) } catch {}
-    emitChange()
   }, [])
 
   const t = useCallback((key: string): string => {
-    return resolvePath(dictRef.current, key)
-  }, [])
+    return resolvePath(dictionaries[locale], key)
+  }, [locale])
+
+  return (
+    <I18nContext.Provider value={{ locale, t, setLocale }}>
+      {children}
+    </I18nContext.Provider>
+  )
+}
+
+export function SystemI18nProvider({ children }: { children: React.ReactNode }) {
+  const locale = getSystemLocale()
+
+  const t = useCallback((key: string): string => {
+    return resolvePath(dictionaries[locale], key)
+  }, [locale])
+
+  const setLocale = useCallback((_l: Locale) => {}, [])
 
   return (
     <I18nContext.Provider value={{ locale, t, setLocale }}>

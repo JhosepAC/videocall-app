@@ -6,6 +6,7 @@ import { Video, Link as LinkIcon, Plus, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ThemeProvider } from "@/components/theme/theme-provider"
+import { I18nProvider } from "@/components/i18n/i18n-provider"
 import { Clock } from "./clock"
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
 
     return (
         <ThemeProvider>
+        <I18nProvider>
         <div className="min-h-screen flex flex-col bg-surface dark:bg-background font-sans transition-colors selection:bg-brand/20">
             <nav className="sticky top-0 z-50 w-full bg-background/60 dark:bg-background/60 backdrop-blur-xl border-b border-border/50">
                 <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -143,6 +145,7 @@ export default async function DashboardPage() {
                 </div>
             </footer>
         </div>
+        </I18nProvider>
         </ThemeProvider>
     )
 }

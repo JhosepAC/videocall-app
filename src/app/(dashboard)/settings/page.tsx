@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { I18nProvider } from '@/components/i18n/i18n-provider'
 import { SettingsView } from './settings-view'
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default async function SettingsPage() {
 
     return (
         <ThemeProvider>
+            <I18nProvider>
             <SettingsView
                 email={user.email!}
                 profile={{
@@ -36,6 +38,7 @@ export default async function SettingsPage() {
                     avatar_url: profile.avatar_url,
                 }}
             />
+            </I18nProvider>
         </ThemeProvider>
     )
 }

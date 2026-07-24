@@ -282,21 +282,14 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 function PreferencesTab() {
     const { theme, setTheme } = useTheme()
     const { t, locale, setLocale } = useI18n()
-    const [lang, setLang] = useState<Lang>(() => {
-        if (typeof window !== 'undefined') {
-            return (localStorage.getItem('lang') as Lang) || 'en'
-        }
-        return 'en'
-    })
     const [saving, setSaving] = useState(false)
 
     async function handleThemeChange(t: 'light' | 'dark' | 'system') {
         await setTheme(t)
-        await savePreferences(t, lang)
+        await savePreferences(t, locale)
     }
 
     async function handleLangChange(l: Lang) {
-        setLang(l)
         setLocale(l)
         setSaving(true)
         await savePreferences(theme, l)
@@ -349,7 +342,7 @@ function PreferencesTab() {
                 </p>
                 <div className="flex gap-2 items-center">
                     {langOptions.map((opt) => {
-                        const active = lang === opt.value
+                        const active = locale === opt.value
                         return (
                             <button
                                 key={opt.value}
