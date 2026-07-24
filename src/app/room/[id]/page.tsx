@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { ThemeProvider } from '@/components/theme/theme-provider'
 import RoomClient from './RoomClient'
 
 export const metadata: Metadata = {
@@ -8,8 +9,10 @@ export const metadata: Metadata = {
 
 export default function RoomPage({ params }: { params: { id: string } }) {
     return (
-        <div className="min-h-screen bg-background">
-            <RoomClient roomId={params.id} />
-        </div>
+        <ThemeProvider>
+            <div className="min-h-screen bg-background">
+                <RoomClient roomId={params.id} />
+            </div>
+        </ThemeProvider>
     )
 }

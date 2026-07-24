@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { ArrowLeft, Settings, User, Shield, Lock, LogOut, AtSign, Link2, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { updateProfile, updatePassword, signOut } from './actions'
+import { useTheme } from '@/components/theme/theme-provider'
+import { updateProfile, updatePassword, savePreferences, signOut } from './actions'
 
 type Tab = 'account' | 'profile' | 'preferences' | 'security'
-type Theme = 'light' | 'dark' | 'system'
 type Lang = 'es' | 'en'
 
 const PASSWORD_RULES = [
@@ -276,46 +276,30 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 }
 
 function PreferencesTab() {
-    const [theme, setTheme] = useState<Theme>(() => {
-        if (typeof window !== 'undefined') {
-            return (localStorage.getItem('theme') as Theme) || 'system'
-        }
-        return 'system'
-    })
+    const { theme, setTheme } = useTheme()
     const [lang, setLang] = useState<Lang>(() => {
         if (typeof window !== 'undefined') {
             return (localStorage.getItem('lang') as Lang) || 'es'
         }
         return 'es'
     })
+    const [saving, setSaving] = useState(false)
 
-    useEffect(() => {
-        localStorage.setItem('theme', theme)
-        const root = document.documentElement
-        if (theme === 'dark') {
-            root.classList.add('dark')
-        } else if (theme === 'light') {
-            root.classList.remove('dark')
-        } else {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-            root.classList.toggle('dark', prefersDark)
-        }
-    }, [theme])
-
-    useEffect(() => {
-        localStorage.setItem('lang', lang)
-        document.documentElement.setAttribute('lang', lang)
-    }, [lang])
-
-    function applyTheme(t: Theme) {
-        setTheme(t)
+    async function handleThemeChange(t: 'light' | 'dark' | 'system') {
+        await setTheme(t)
+        await savePreferences(t, lang)
     }
 
-    function applyLang(l: Lang) {
+    async function handleLangChange(l: Lang) {
         setLang(l)
+        localStorage.setItem('lang', l)
+        document.documentElement.setAttribute('lang', l)
+        setSaving(true)
+        await savePreferences(theme, l)
+        setSaving(false)
     }
 
-    const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
+    const themeOptions: { value: 'light' | 'dark' | 'system'; label: string; icon: typeof Sun }[] = [
         { value: 'light', label: 'Claro', icon: Sun },
         { value: 'dark', label: 'Oscuro', icon: Moon },
         { value: 'system', label: 'Sistema', icon: Monitor },
@@ -340,7 +324,7 @@ function PreferencesTab() {
                         return (
                             <button
                                 key={opt.value}
-                                onClick={() => applyTheme(opt.value)}
+                                onClick={() => handleThemeChange(opt.value)}
                                 className={`flex flex-1 flex-col items-center gap-2 p-3 sm:p-4 rounded-xl border text-sm font-medium transition-all cursor-pointer ${active
                                     ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
@@ -359,13 +343,14 @@ function PreferencesTab() {
                 <p className="text-sm text-muted-foreground mb-4">
                     Selecciona el idioma de la interfaz.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                     {langOptions.map((opt) => {
                         const active = lang === opt.value
                         return (
                             <button
                                 key={opt.value}
-                                onClick={() => applyLang(opt.value)}
+                                onClick={() => handleLangChange(opt.value)}
+                                disabled={saving}
                                 className={`flex flex-1 items-center gap-2 px-3 sm:px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer ${active
                                     ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'

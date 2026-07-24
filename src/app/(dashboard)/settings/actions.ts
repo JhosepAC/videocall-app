@@ -77,6 +77,37 @@ export async function updatePassword(formData: FormData): Promise<{ error?: stri
     return { success: true }
 }
 
+export async function savePreferences(theme: string, lang: string): Promise<{ error?: string }> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return { error: 'No autenticado' }
+
+    const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        theme,
+        lang,
+    })
+
+    if (error) return { error: error.message }
+    return {}
+}
+
+export async function getPreferences(): Promise<{ theme: string; lang: string } | null> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return null
+
+    const { data } = await supabase
+        .from('profiles')
+        .select('theme, lang')
+        .eq('id', user.id)
+        .single()
+
+    return data ? { theme: data.theme || 'system', lang: data.lang || 'es' } : null
+}
+
 export async function signOut() {
     const supabase = await createClient()
     await supabase.auth.signOut()
