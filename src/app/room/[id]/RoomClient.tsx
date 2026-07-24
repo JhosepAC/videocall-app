@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Copy, Check, Users } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
 import { useWebRTC } from '@/hooks/useWebRTC'
+import { createClient } from '@/lib/supabase/client'
 
 interface RoomClientProps {
     roomId: string
@@ -21,7 +22,7 @@ const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
     }, [stream])
 
     return (
-        <div className="relative w-full h-full min-h-[200px] bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
+        <div className="relative w-full h-full bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
             <video
                 ref={videoRef}
                 autoPlay
@@ -47,10 +48,36 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         toggleVideo,
     } = useLocalMediaStream()
 
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const { remoteStreams } = useWebRTC(roomId, localStream)
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const [copied, setCopied] = useState(false)
+    const [now, setNow] = useState(new Date())
+    const [fullName, setFullName] = useState('')
+    const [username, setUsername] = useState('')
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000)
+        return () => clearInterval(id)
+    }, [])
+
+    useEffect(() => {
+        const supabase = createClient()
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (!user) return
+            supabase
+                .from('profiles')
+                .select('full_name, username')
+                .eq('id', user.id)
+                .single()
+                .then(({ data }) => {
+                    if (data) {
+                        setFullName(data.full_name || '')
+                        setUsername(data.username || '')
+                    }
+                })
+        })
+    }, [])
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -62,6 +89,15 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         navigator.clipboard.writeText(roomId)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
+    }
+
+    function formatHeaderDate(d: Date): string {
+        const localeStr = locale === 'es' ? 'es-ES' : 'en-US'
+        return d.toLocaleDateString(localeStr, { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' })
+    }
+
+    function formatHeaderTime(d: Date): string {
+        return d.toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
     }
 
     if (status === 'requesting') {
@@ -100,35 +136,38 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const totalParticipants = 1 + Object.keys(remoteStreams).length
     const gridClasses =
-        totalParticipants === 1 ? 'grid-cols-1 max-w-4xl' :
+        totalParticipants === 1 ? 'grid-cols-1' :
             totalParticipants === 2 ? 'grid-cols-1 sm:grid-cols-2' :
                 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
 
+    const displayName = fullName || 'You'
+    const displayUsername = username ? `@${username}` : ''
+
     return (
         <div className="flex flex-col min-h-screen bg-background">
-            <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-card/70 backdrop-blur-xl border border-border/40 shadow-lg shadow-black/5 px-4 py-2 rounded-full">
-                <button
-                    onClick={handleCopyRoomId}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    aria-label="Copy room ID"
-                >
-                    <span className="font-mono text-xs tracking-wider select-all">{roomId}</span>
-                    {copied ? (
-                        <Check className="w-3.5 h-3.5 text-green-500" />
-                    ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                    )}
-                </button>
-                <span className="w-px h-4 bg-border" />
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="w-3.5 h-3.5" />
-                    {totalParticipants}
-                </span>
+            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-xl border-b border-border/40">
+                <div className="flex items-center gap-3 px-4 h-12 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span className="tabular-nums">{formatHeaderDate(now)} - {formatHeaderTime(now)}</span>
+                    <span className="w-px h-3 bg-border" />
+                    <button
+                        onClick={handleCopyRoomId}
+                        className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer font-mono tracking-wider"
+                    >
+                        {roomId}
+                        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                    <span className="w-px h-3 bg-border" />
+                    <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" />
+                        {totalParticipants}
+                    </span>
+                </div>
             </header>
 
-            <main className="flex-1 flex flex-col items-center justify-center p-4 pt-20 pb-28">
-                <div className={`w-full h-full grid gap-4 place-items-center ${gridClasses} transition-all duration-500`}>
-                    <div className="relative w-full h-full min-h-[200px] bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20">
+            <main className="flex-1 flex items-center justify-center p-4 pt-16 pb-24">
+                <div className={`w-full h-full max-h-[calc(100vh-10rem)] grid gap-3 place-items-center ${gridClasses}`}>
+                    <div className="relative w-full h-full min-h-0 bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20">
                         <video
                             ref={localVideoRef}
                             autoPlay
@@ -143,8 +182,11 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <CameraOff className="w-12 h-12 mb-2 stroke-[1.5]" />
                             </div>
                         )}
-                        <div className="absolute bottom-3 left-3 bg-brand/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-brand-foreground shadow-md border border-brand/30">
-                            {t('room.you_local')}
+                        <div className="absolute bottom-3 left-3 bg-overlay/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-glass/20">
+                            <p className="text-xs font-semibold text-foreground leading-tight">{displayName}</p>
+                            {displayUsername && (
+                                <p className="text-[10px] text-muted-foreground/80 leading-tight">{displayUsername}</p>
+                            )}
                         </div>
                     </div>
 
@@ -154,32 +196,34 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 </div>
             </main>
 
-            <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card/80 backdrop-blur-xl border border-border/40 shadow-lg shadow-black/10 px-5 py-3 rounded-2xl">
-                <Button
-                    size="icon-lg"
-                    variant={isAudioMuted ? 'destructive' : 'secondary'}
-                    onClick={toggleAudio}
-                    className="rounded-xl transition-all duration-200 active:scale-90"
-                >
-                    {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </Button>
-                <Button
-                    size="icon-lg"
-                    variant={isVideoStopped ? 'destructive' : 'secondary'}
-                    onClick={toggleVideo}
-                    className="rounded-xl transition-all duration-200 active:scale-90"
-                >
-                    {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-                </Button>
-                <span className="w-px h-8 bg-border/60 mx-1" />
-                <Button
-                    size="lg"
-                    variant="destructive"
-                    className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
-                >
-                    <PhoneOff className="w-5 h-5" />
-                    {t('room.leave')}
-                </Button>
+            <footer className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-xl border-t border-border/40 py-3">
+                <div className="flex items-center gap-3">
+                    <Button
+                        size="icon-lg"
+                        variant={isAudioMuted ? 'destructive' : 'secondary'}
+                        onClick={toggleAudio}
+                        className="rounded-xl transition-all duration-200 active:scale-90"
+                    >
+                        {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                    </Button>
+                    <Button
+                        size="icon-lg"
+                        variant={isVideoStopped ? 'destructive' : 'secondary'}
+                        onClick={toggleVideo}
+                        className="rounded-xl transition-all duration-200 active:scale-90"
+                    >
+                        {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+                    </Button>
+                    <span className="w-px h-8 bg-border/60 mx-1" />
+                    <Button
+                        size="lg"
+                        variant="destructive"
+                        className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
+                    >
+                        <PhoneOff className="w-5 h-5" />
+                        {t('room.leave')}
+                    </Button>
+                </div>
             </footer>
         </div>
     )
