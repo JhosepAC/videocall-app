@@ -159,8 +159,11 @@ function AccountTab({ email }: { email: string }) {
 function ProfileTab({ profile }: { profile: ProfileData }) {
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+    const [fullName, setFullName] = useState(profile.full_name)
+    const [username, setUsername] = useState(profile.username)
+    const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url || '')
 
-    const initials = getInitials(profile.full_name)
+    const initials = getInitials(fullName)
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -168,6 +171,11 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
         const formData = new FormData(e.currentTarget)
         startTransition(async () => {
             const res = await updateProfile(formData)
+            if (res.success) {
+                setFullName((formData.get('fullName') as string) || fullName)
+                setUsername((formData.get('username') as string) || username)
+                setAvatarUrl((formData.get('avatarUrl') as string) || avatarUrl)
+            }
             setResult(res)
         })
     }
@@ -179,7 +187,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                 <div className="px-4 pb-4 sm:px-8 sm:pb-8">
                     <div className="relative flex justify-between items-end -mt-12 mb-6">
                         <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background shadow-md bg-muted">
-                            <AvatarImage src={profile.avatar_url || ''} />
+                            <AvatarImage src={avatarUrl} />
                             <AvatarFallback className="text-2xl text-muted-foreground">
                                 {initials}
                             </AvatarFallback>
@@ -195,7 +203,8 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                     <Input
                                         id="fullName"
                                         name="fullName"
-                                        defaultValue={profile.full_name}
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
                                         placeholder="Ej. Jhosep Argomedo"
                                         disabled={isPending}
                                         className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
@@ -209,7 +218,8 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                     <Input
                                         id="username"
                                         name="username"
-                                        defaultValue={profile.username}
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
                                         placeholder="usuario_dev"
                                         disabled={isPending}
                                         className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
@@ -225,7 +235,8 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                 <Input
                                     id="avatarUrl"
                                     name="avatarUrl"
-                                    defaultValue={profile.avatar_url || ''}
+                                    value={avatarUrl}
+                                    onChange={(e) => setAvatarUrl(e.target.value)}
                                     placeholder="https://ejemplo.com/avatar.jpg"
                                     disabled={isPending}
                                     className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
