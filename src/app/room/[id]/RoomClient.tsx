@@ -144,9 +144,9 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const displayUsername = username ? `@${username}` : ''
 
     return (
-        <div className="flex flex-col min-h-screen bg-background">
-            <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-xl border-b border-border/40">
-                <div className="flex items-center gap-3 px-4 h-12 text-xs text-muted-foreground">
+        <div className="flex flex-col h-screen overflow-hidden bg-background">
+            <header className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-b border-border/40 h-12">
+                <div className="flex items-center gap-3 px-4 text-xs text-muted-foreground">
                     <Clock className="w-3.5 h-3.5" />
                     <span className="tabular-nums">{formatHeaderDate(now)} - {formatHeaderTime(now)}</span>
                     <span className="w-px h-3 bg-border" />
@@ -165,8 +165,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 </div>
             </header>
 
-            <main className="flex-1 flex items-center justify-center p-4 pt-16 pb-24">
-                <div className={`w-full h-full max-h-[calc(100vh-10rem)] grid gap-3 place-items-center ${gridClasses}`}>
+            <main className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+                <div className={`w-full h-full grid gap-3 place-items-center ${gridClasses}`}>
                     <div className="relative w-full h-full min-h-0 bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20">
                         <video
                             ref={localVideoRef}
@@ -196,7 +196,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 </div>
             </main>
 
-            <footer className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-xl border-t border-border/40 py-3">
+            <footer className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16">
                 <div className="flex items-center gap-3">
                     <Button
                         size="icon-lg"
