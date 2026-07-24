@@ -2,11 +2,12 @@ import { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Video, Link as LinkIcon, User } from "lucide-react"
+import { Video, Link as LinkIcon, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Clock } from "./clock"
 
-// SEO optimization and structured authorship
 export const metadata: Metadata = {
     title: "Dashboard | Plataforma de Videoconferencias",
     description: "Gestiona tus salas de reuniones P2P de alta calidad.",
@@ -14,19 +15,26 @@ export const metadata: Metadata = {
     keywords: ["WebRTC", "React", "Ingeniería de Software", "Videoconferencias"],
 }
 
+function getInitials(name: string): string {
+    return name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+}
+
 export default async function DashboardPage() {
     const supabase = await createClient()
 
-    // Check the session
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
         redirect("/login")
     }
 
-    // Get profile for personalized greeting
     const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, username")
+        .select("full_name, username, avatar_url")
         .eq("id", user.id)
         .single()
 
@@ -34,71 +42,87 @@ export default async function DashboardPage() {
         redirect("/complete-profile")
     }
 
-    const firstName = profile?.full_name?.split(" ")[0] || "Usuario"
+    const firstName = profile.full_name.split(" ")[0]
+    const initials = getInitials(profile.full_name)
+    const currentYear = new Date().getFullYear()
 
     return (
-        <div className="min-h-screen bg-surface dark:bg-background font-sans transition-colors">
-            {/* Top navbar (Minimalist + Glassmorphism) */}
-            <nav className="sticky top-0 z-50 w-full bg-glass/70 dark:bg-background/70 backdrop-blur-md border-b border-border">
-                <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
-                            <Video className="w-4 h-4 text-brand-foreground" />
+        <div className="min-h-screen flex flex-col bg-surface dark:bg-background font-sans transition-colors selection:bg-brand/20">
+            <nav className="sticky top-0 z-50 w-full bg-background/60 dark:bg-background/60 backdrop-blur-xl border-b border-border/50">
+                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center border border-brand/20">
+                            <Video className="w-5 h-5 text-brand" />
                         </div>
-                        <span className="font-semibold text-foreground tracking-tight">MeetMesh</span>
+                        <span className="font-semibold text-foreground tracking-tight text-lg">MeetMesh</span>
                     </div>
-                    <Link href="/profile">
-                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted">
-                            <User className="w-5 h-5 text-muted-foreground" />
-                        </Button>
+                    <Link href="/profile" className="group">
+                        <div className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-muted/60 transition-colors">
+                            <Avatar className="w-9 h-9 ring-2 ring-border/60 group-hover:ring-brand/40 transition-all">
+                                <AvatarImage src={profile.avatar_url || ""} />
+                                <AvatarFallback className="text-xs font-semibold text-foreground bg-muted">
+                                    {initials}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="hidden sm:flex flex-col leading-tight">
+                                <span className="text-sm font-medium text-foreground">{profile.full_name}</span>
+                                <span className="text-xs text-muted-foreground">@{profile.username}</span>
+                            </div>
+                        </div>
                     </Link>
                 </div>
             </nav>
 
-            {/* Main content */}
-            <main className="max-w-5xl mx-auto px-4 py-12 md:py-20">
-                <div className="mb-10">
-                    <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-                        Hola, {firstName}
-                    </h1>
-                    <p className="text-muted-foreground mt-2 text-lg">
-                        ¿Qué te gustaría hacer hoy?
-                    </p>
+            <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-12 md:py-16 flex flex-col">
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14">
+                    <div className="space-y-1">
+                        <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight">
+                            Hola, {firstName}
+                        </h1>
+                        <p className="text-muted-foreground text-lg md:text-xl font-light">
+                            ¿Qué te gustaría hacer hoy?
+                        </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                        <Clock />
+                    </div>
                 </div>
 
-                {/* Action grid (Material Cards + subtle Glass) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl">
+                    <div className="group relative overflow-hidden rounded-3xl bg-card/50 dark:bg-card/20 border border-border/50 backdrop-blur-sm shadow-sm hover:shadow-xl hover:shadow-brand/5 hover:border-brand/30 transition-all duration-500 p-8 flex flex-col justify-between h-72">
+                        <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full bg-brand/10 blur-3xl group-hover:bg-brand/20 transition-all duration-500" />
 
-                    {/* Card 1: Create Meeting */}
-                    <div className="group relative overflow-hidden rounded-3xl bg-card border-border shadow-sm hover:shadow-xl hover:shadow-brand/10 transition-all duration-300 p-8 flex flex-col justify-between h-64">
-                        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-brand-muted blur-2xl group-hover:bg-brand/20 transition-all"></div>
-                        <div>
-                            <div className="w-12 h-12 rounded-2xl bg-brand-muted flex items-center justify-center mb-6">
-                                <Video className="w-6 h-6 text-brand" />
+                        <div className="relative z-10">
+                            <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-6 border border-brand/20">
+                                <Plus className="w-7 h-7 text-brand" />
                             </div>
-                            <h2 className="text-xl font-semibold text-card-foreground mb-2">Crear nueva reunión</h2>
-                            <p className="text-muted-foreground text-sm">Inicia una sala instantánea y comparte el enlace con los demás participantes.</p>
+                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">Nueva reunión</h2>
+                            <p className="text-muted-foreground text-sm leading-relaxed">
+                                Inicia una sala al instante y comparte el enlace de invitación con los demás participantes.
+                            </p>
                         </div>
 
-                        <form action="/api/create-room" method="POST" className="mt-4">
-                            <Button type="submit" className="w-full bg-brand hover:bg-brand-hover text-brand-foreground shadow-md">
-                                Nueva Reunión
+                        <form action="/api/create-room" method="POST" className="mt-6 relative z-10">
+                            <Button type="submit" size="lg" className="w-full bg-brand hover:bg-brand/90 text-brand-foreground shadow-sm rounded-xl font-medium transition-transform active:scale-[0.98]">
+                                Iniciar ahora
                             </Button>
                         </form>
                     </div>
 
-                    {/* Card 2: Join Meeting */}
-                    <div className="group relative overflow-hidden rounded-3xl bg-card border-border shadow-sm hover:shadow-xl hover:shadow-brand-secondary/10 transition-all duration-300 p-8 flex flex-col justify-between h-64">
-                        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-brand-secondary-muted blur-2xl group-hover:bg-brand-secondary/20 transition-all"></div>
-                        <div>
-                            <div className="w-12 h-12 rounded-2xl bg-brand-secondary-muted flex items-center justify-center mb-6">
-                                <LinkIcon className="w-6 h-6 text-brand-secondary" />
+                    <div className="group relative overflow-hidden rounded-3xl bg-card/50 dark:bg-card/20 border border-border/50 backdrop-blur-sm shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/30 transition-all duration-500 p-8 flex flex-col justify-between h-72">
+                        <div className="absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-primary/10 blur-3xl group-hover:bg-primary/20 transition-all duration-500" />
+
+                        <div className="relative z-10">
+                            <div className="w-14 h-14 rounded-2xl bg-secondary/50 flex items-center justify-center mb-6 border border-border">
+                                <LinkIcon className="w-7 h-7 text-foreground/70" />
                             </div>
-                            <h2 className="text-xl font-semibold text-card-foreground mb-2">Unirse con un enlace</h2>
-                            <p className="text-muted-foreground text-sm">Ingresa el código o enlace de la sala a la que fuiste invitado.</p>
+                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">Unirse con código</h2>
+                            <p className="text-muted-foreground text-sm leading-relaxed">
+                                Ingresa el código de la sala o el enlace de la reunión a la que fuiste invitado.
+                            </p>
                         </div>
 
-                        <form className="mt-4 flex gap-2" action={async (formData) => {
+                        <form className="mt-6 relative z-10 flex gap-3" action={async (formData) => {
                             "use server"
                             const roomCode = formData.get("roomCode")
                             if (roomCode) redirect(`/room/${roomCode}`)
@@ -106,17 +130,35 @@ export default async function DashboardPage() {
                             <Input
                                 name="roomCode"
                                 placeholder="Ej. abc-123-xyz"
-                                className="bg-surface dark:bg-background/50 border-border focus-visible:ring-brand-secondary"
+                                className="h-12 bg-background/50 border-border/60 focus-visible:ring-1 focus-visible:ring-brand rounded-xl shadow-inner"
                                 required
                             />
-                            <Button type="submit" variant="secondary" className="bg-secondary text-secondary-foreground hover:bg-muted">
+                            <Button type="submit" size="lg" variant="secondary" className="h-12 rounded-xl font-medium bg-secondary/80 hover:bg-secondary">
                                 Unirse
                             </Button>
                         </form>
                     </div>
-
                 </div>
             </main>
+
+            <footer className="w-full border-t border-border/40 bg-background/40 backdrop-blur-sm mt-auto">
+                <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-sm text-muted-foreground font-light">
+                        &copy; {currentYear} MeetMesh. Todos los derechos reservados.
+                    </p>
+                    <p className="text-sm text-muted-foreground font-light">
+                        Desarrollado por{" "}
+                        <Link
+                            href="https://jhosep-ac.pages.dev"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-foreground/80 hover:text-brand transition-colors underline-offset-4 hover:underline"
+                        >
+                            Jhosep AC
+                        </Link>
+                    </p>
+                </div>
+            </footer>
         </div>
     )
 }
