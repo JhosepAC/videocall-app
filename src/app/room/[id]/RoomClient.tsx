@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Copy, Check, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
@@ -11,10 +11,8 @@ interface RoomClientProps {
     roomId: string
 }
 
-// Sub-component for remote peers to handle their HTMLMediaElement refs safely
 const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
-    const { t } = useI18n()
 
     useEffect(() => {
         if (videoRef.current && stream) {
@@ -23,22 +21,22 @@ const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
     }, [stream])
 
     return (
-        <div className="relative w-full h-full min-h-[200px] bg-card rounded-2xl overflow-hidden shadow-lg border-border">
+        <div className="relative w-full h-full min-h-[200px] bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
             <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-3 left-3 bg-overlay/60 backdrop-blur-md px-2.5 py-1 rounded-md border border-glass/10 text-xs font-medium text-foreground">
-                {t('room.participant')}
+            <div className="absolute bottom-3 left-3 bg-overlay/70 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-foreground/90 border border-glass/20">
+                <Users className="w-3 h-3 inline mr-1.5 -mt-0.5" />
+                {id.slice(0, 8)}
             </div>
         </div>
     )
 }
 
 export default function RoomClient({ roomId }: RoomClientProps) {
-    // 1. Initialize local hardware
     const {
         localStream,
         status,
@@ -50,11 +48,9 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     } = useLocalMediaStream()
 
     const { t } = useI18n()
-
-    // 2. Initialize WebRTC Signaling engine ONLY when localStream is ready
     const { remoteStreams } = useWebRTC(roomId, localStream)
-
     const localVideoRef = useRef<HTMLVideoElement>(null)
+    const [copied, setCopied] = useState(false)
 
     useEffect(() => {
         if (localVideoRef.current && localStream) {
@@ -62,28 +58,46 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         }
     }, [localStream])
 
+    function handleCopyRoomId() {
+        navigator.clipboard.writeText(roomId)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
     if (status === 'requesting') {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-foreground p-4">
-                <Loader2 className="w-12 h-12 text-brand animate-spin mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">{t('room.loading_devices')}</h2>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+                <div className="relative mb-8">
+                    <div className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
+                        <Loader2 className="w-10 h-10 text-brand animate-spin" />
+                    </div>
+                </div>
+                <h2 className="text-xl font-semibold mb-2">{t('room.loading_devices')}</h2>
+                <div className="flex gap-1.5 mt-4">
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
             </div>
         )
     }
 
     if (status === 'error') {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-foreground p-4">
-                <div className="bg-destructive/10 border border-destructive/20 p-8 rounded-3xl max-w-md text-center">
-                    <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">{t('room.hardware_error')}</h2>
-                    <p className="text-muted-foreground mb-6">{errorMessage}</p>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+                <div className="flex flex-col items-center max-w-sm text-center space-y-6">
+                    <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/20">
+                        <AlertCircle className="w-8 h-8 text-destructive" />
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-xl font-semibold">{t('room.hardware_error')}</h2>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{errorMessage}</p>
+                    </div>
                 </div>
             </div>
         )
     }
 
-    // Calculate dynamic grid columns based on number of participants (Mesh Network Limit logic)
     const totalParticipants = 1 + Object.keys(remoteStreams).length
     const gridClasses =
         totalParticipants === 1 ? 'grid-cols-1 max-w-4xl' :
@@ -91,24 +105,30 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
 
     return (
-        <div className="flex flex-col h-screen p-4 md:p-6 bg-background">
-            <header className="flex justify-between items-center mb-4 bg-card/50 backdrop-blur-md p-4 rounded-2xl border border-glass/5">
-                <div>
-                    <h1 className="text-xl font-bold text-foreground">{t('room.room_header')}</h1>
-                    <p className="text-sm text-muted-foreground font-mono select-all">{t('room.room_id')} {roomId}</p>
-                </div>
-                <Button variant="destructive" className="bg-destructive hover:bg-destructive/80 shadow-lg shadow-destructive/20">
-                    {t('room.leave')}
-                </Button>
+        <div className="flex flex-col min-h-screen bg-background">
+            <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-card/70 backdrop-blur-xl border border-border/40 shadow-lg shadow-black/5 px-4 py-2 rounded-full">
+                <button
+                    onClick={handleCopyRoomId}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    aria-label="Copy room ID"
+                >
+                    <span className="font-mono text-xs tracking-wider select-all">{roomId}</span>
+                    {copied ? (
+                        <Check className="w-3.5 h-3.5 text-green-500" />
+                    ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                    )}
+                </button>
+                <span className="w-px h-4 bg-border" />
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="w-3.5 h-3.5" />
+                    {totalParticipants}
+                </span>
             </header>
 
-            <main className="flex-1 relative rounded-3xl overflow-hidden bg-overlay/40 border border-glass/5 flex flex-col items-center justify-center p-4 md:p-6">
-
-                {/* Responsive Grid System */}
+            <main className="flex-1 flex flex-col items-center justify-center p-4 pt-20 pb-28">
                 <div className={`w-full h-full grid gap-4 place-items-center ${gridClasses} transition-all duration-500`}>
-
-                    {/* Local Video */}
-                    <div className="relative w-full h-full max-h-[80vh] bg-card rounded-2xl overflow-hidden shadow-lg border border-brand/30">
+                    <div className="relative w-full h-full min-h-[200px] bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20">
                         <video
                             ref={localVideoRef}
                             autoPlay
@@ -120,31 +140,47 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                         />
                         {isVideoStopped && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-card text-muted-foreground">
-                                <CameraOff className="w-16 h-16 mb-2 stroke-[1.5]" />
+                                <CameraOff className="w-12 h-12 mb-2 stroke-[1.5]" />
                             </div>
                         )}
-                        <div className="absolute bottom-3 left-3 bg-brand/90 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-medium text-brand-foreground shadow-md">
+                        <div className="absolute bottom-3 left-3 bg-brand/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-brand-foreground shadow-md border border-brand/30">
                             {t('room.you_local')}
-                        </div>
-
-                        {/* Local Controls Toolbar */}
-                        <div className="absolute bottom-3 right-3 flex gap-2 bg-overlay/60 backdrop-blur-md p-1.5 rounded-xl border border-glass/10">
-                            <Button size="icon" variant={isAudioMuted ? 'destructive' : 'secondary'} onClick={toggleAudio} className="w-8 h-8 rounded-lg">
-                                {isAudioMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                            </Button>
-                            <Button size="icon" variant={isVideoStopped ? 'destructive' : 'secondary'} onClick={toggleVideo} className="w-8 h-8 rounded-lg">
-                                {isVideoStopped ? <CameraOff className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                            </Button>
                         </div>
                     </div>
 
-                    {/* Remote Videos Mapping */}
                     {Object.entries(remoteStreams).map(([peerId, stream]) => (
                         <RemoteVideo key={peerId} id={peerId} stream={stream} />
                     ))}
-
                 </div>
             </main>
+
+            <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card/80 backdrop-blur-xl border border-border/40 shadow-lg shadow-black/10 px-5 py-3 rounded-2xl">
+                <Button
+                    size="icon-lg"
+                    variant={isAudioMuted ? 'destructive' : 'secondary'}
+                    onClick={toggleAudio}
+                    className="rounded-xl transition-all duration-200 active:scale-90"
+                >
+                    {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </Button>
+                <Button
+                    size="icon-lg"
+                    variant={isVideoStopped ? 'destructive' : 'secondary'}
+                    onClick={toggleVideo}
+                    className="rounded-xl transition-all duration-200 active:scale-90"
+                >
+                    {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+                </Button>
+                <span className="w-px h-8 bg-border/60 mx-1" />
+                <Button
+                    size="lg"
+                    variant="destructive"
+                    className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
+                >
+                    <PhoneOff className="w-5 h-5" />
+                    {t('room.leave')}
+                </Button>
+            </footer>
         </div>
     )
 }
