@@ -50,7 +50,7 @@ function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; ic
     return (
         <button
             onClick={onClick}
-            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${active
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer w-full sm:w-auto ${active
                 ? 'bg-brand/10 text-brand shadow-sm border border-brand/20'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent'
             }`}
@@ -80,7 +80,7 @@ export function SettingsView({ email, profile }: Props) {
                 </div>
             </div>
 
-            <div className="flex gap-1.5 overflow-x-auto pb-4 mb-8 border-b border-border/50">
+            <div className="flex flex-col sm:flex-row gap-1.5 pb-4 mb-8 border-b border-border/50">
                 {TABS.map((t) => (
                     <TabButton key={t.key} active={tab === t.key} icon={t.icon} label={t.label} onClick={() => setTab(t.key)} />
                 ))}
