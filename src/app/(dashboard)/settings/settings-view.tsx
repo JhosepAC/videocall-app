@@ -50,7 +50,7 @@ function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; ic
     return (
         <button
             onClick={onClick}
-            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${active
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${active
                 ? 'bg-brand/10 text-brand shadow-sm border border-brand/20'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent'
             }`}
@@ -65,7 +65,7 @@ export function SettingsView({ email, profile }: Props) {
     const [tab, setTab] = useState<Tab>('account')
 
     return (
-        <div className="max-w-4xl mx-auto px-6 py-10">
+        <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
             <div className="flex items-start gap-3 mb-8">
                 <a
                     href="/dashboard"
@@ -106,7 +106,7 @@ function AccountTab({ email }: { email: string }) {
 
     return (
         <div className="space-y-6">
-            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-1">Correo electrónico</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                     Este es el correo asociado a tu cuenta. No se puede modificar.
@@ -124,7 +124,7 @@ function AccountTab({ email }: { email: string }) {
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-1">Cerrar sesión</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                     Sal de tu cuenta en este dispositivo.
@@ -176,9 +176,9 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
         <div className="max-w-2xl">
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
                 <div className="h-28 bg-gradient-to-r from-brand to-brand-secondary" />
-                <div className="px-8 pb-8">
+                <div className="px-4 pb-4 sm:px-8 sm:pb-8">
                     <div className="relative flex justify-between items-end -mt-12 mb-6">
-                        <Avatar className="w-24 h-24 border-4 border-background shadow-md bg-muted">
+                        <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background shadow-md bg-muted">
                             <AvatarImage src={profile.avatar_url || ''} />
                             <AvatarFallback className="text-2xl text-muted-foreground">
                                 {initials}
@@ -317,7 +317,7 @@ function PreferencesTab() {
 
     return (
         <div className="max-w-lg space-y-6">
-            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-1">Tema</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                     Personaliza la apariencia de la aplicación.
@@ -330,7 +330,7 @@ function PreferencesTab() {
                             <button
                                 key={opt.value}
                                 onClick={() => applyTheme(opt.value)}
-                                className={`flex flex-1 flex-col items-center gap-2 p-4 rounded-xl border text-sm font-medium transition-all ${active
+                                className={`flex flex-1 flex-col items-center gap-2 p-3 sm:p-4 rounded-xl border text-sm font-medium transition-all cursor-pointer ${active
                                     ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
                                 }`}
@@ -343,7 +343,7 @@ function PreferencesTab() {
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-1">Idioma</h2>
                 <p className="text-sm text-muted-foreground mb-4">
                     Selecciona el idioma de la interfaz.
@@ -355,7 +355,7 @@ function PreferencesTab() {
                             <button
                                 key={opt.value}
                                 onClick={() => applyLang(opt.value)}
-                                className={`flex flex-1 items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${active
+                                className={`flex flex-1 items-center gap-2 px-3 sm:px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer ${active
                                     ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
                                 }`}
@@ -391,7 +391,7 @@ function SecurityTab() {
 
     return (
         <div className="max-w-lg">
-            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground mb-1">Cambiar contraseña</h2>
                 <p className="text-sm text-muted-foreground mb-6">
                     Actualiza tu contraseña periódicamente para mantener tu cuenta segura.
