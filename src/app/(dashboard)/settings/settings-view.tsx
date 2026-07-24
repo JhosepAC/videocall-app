@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { Settings, User, Shield, Lock, LogOut, AtSign, CircleAlert, Loader2, CheckCircle2, Mail } from 'lucide-react'
+import { useState, useTransition, useEffect } from 'react'
+import { Settings, User, Shield, Lock, LogOut, AtSign, Link2, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,15 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { updateProfile, updatePassword, signOut } from './actions'
 
 type Tab = 'account' | 'profile' | 'preferences' | 'security'
+type Theme = 'light' | 'dark' | 'system'
+type Lang = 'es' | 'en'
+
+const PASSWORD_RULES = [
+    { label: 'Más de 6 caracteres', test: (p: string) => p.length > 6 },
+    { label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
+    { label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
+    { label: 'Al menos un signo especial', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
+]
 
 interface ProfileData {
     full_name: string
@@ -101,14 +110,13 @@ function AccountTab({ email }: { email: string }) {
                 <div className="flex items-center gap-3 rounded-xl bg-muted/50 border border-border/40 px-4 py-3">
                     <Mail className="w-5 h-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium text-foreground flex-1 truncate">{email}</span>
-                    <Button
-                        variant="ghost"
-                        size="sm"
+                    <button
                         onClick={handleCopy}
-                        className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
+                        aria-label="Copiar correo"
                     >
-                        {copied ? 'Copiado' : 'Copiar'}
-                    </Button>
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </button>
                 </div>
             </div>
 
@@ -206,6 +214,21 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                             </div>
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="avatarUrl" className="text-card-foreground/80">URL del Avatar</Label>
+                            <div className="relative">
+                                <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                <Input
+                                    id="avatarUrl"
+                                    name="avatarUrl"
+                                    defaultValue={profile.avatar_url || ''}
+                                    placeholder="https://ejemplo.com/avatar.jpg"
+                                    disabled={isPending}
+                                    className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
+                                />
+                            </div>
+                        </div>
+
                         {result?.error && (
                             <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20" role="alert">
                                 <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
@@ -238,13 +261,108 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 }
 
 function PreferencesTab() {
+    const [theme, setTheme] = useState<Theme>(() => {
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem('theme') as Theme) || 'system'
+        }
+        return 'system'
+    })
+    const [lang, setLang] = useState<Lang>(() => {
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem('lang') as Lang) || 'es'
+        }
+        return 'es'
+    })
+
+    useEffect(() => {
+        localStorage.setItem('theme', theme)
+        const root = document.documentElement
+        if (theme === 'dark') {
+            root.classList.add('dark')
+        } else if (theme === 'light') {
+            root.classList.remove('dark')
+        } else {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+            root.classList.toggle('dark', prefersDark)
+        }
+    }, [theme])
+
+    useEffect(() => {
+        localStorage.setItem('lang', lang)
+        document.documentElement.setAttribute('lang', lang)
+    }, [lang])
+
+    function applyTheme(t: Theme) {
+        setTheme(t)
+    }
+
+    function applyLang(l: Lang) {
+        setLang(l)
+    }
+
+    const themeOptions: { value: Theme; label: string; icon: typeof Sun }[] = [
+        { value: 'light', label: 'Claro', icon: Sun },
+        { value: 'dark', label: 'Oscuro', icon: Moon },
+        { value: 'system', label: 'Sistema', icon: Monitor },
+    ]
+
+    const langOptions: { value: Lang; label: string }[] = [
+        { value: 'es', label: 'Español' },
+        { value: 'en', label: 'English' },
+    ]
+
     return (
-        <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-12 flex flex-col items-center justify-center text-center">
-            <Shield className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-1">Preferencias</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-                Aquí podrás personalizar tu experiencia. Próximamente.
-            </p>
+        <div className="max-w-lg space-y-6">
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+                <h2 className="text-lg font-semibold text-foreground mb-1">Tema</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Personaliza la apariencia de la aplicación.
+                </p>
+                <div className="flex gap-2">
+                    {themeOptions.map((opt) => {
+                        const Icon = opt.icon
+                        const active = theme === opt.value
+                        return (
+                            <button
+                                key={opt.value}
+                                onClick={() => applyTheme(opt.value)}
+                                className={`flex flex-1 flex-col items-center gap-2 p-4 rounded-xl border text-sm font-medium transition-all ${active
+                                    ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
+                                    : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                                }`}
+                            >
+                                <Icon className={`w-5 h-5 ${active ? 'text-brand' : ''}`} />
+                                {opt.label}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-6">
+                <h2 className="text-lg font-semibold text-foreground mb-1">Idioma</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Selecciona el idioma de la interfaz.
+                </p>
+                <div className="flex gap-2">
+                    {langOptions.map((opt) => {
+                        const active = lang === opt.value
+                        return (
+                            <button
+                                key={opt.value}
+                                onClick={() => applyLang(opt.value)}
+                                className={`flex flex-1 items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${active
+                                    ? 'bg-brand/10 border-brand/30 text-brand shadow-sm'
+                                    : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                                }`}
+                            >
+                                <Languages className={`w-4 h-4 ${active ? 'text-brand' : ''}`} />
+                                {opt.label}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
         </div>
     )
 }
@@ -252,6 +370,7 @@ function PreferencesTab() {
 function SecurityTab() {
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
+    const [newPassword, setNewPassword] = useState('')
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -261,7 +380,7 @@ function SecurityTab() {
             const res = await updatePassword(formData)
             setResult(res)
             if (res.success) {
-                (e.target as HTMLFormElement).reset()
+                setNewPassword('')
             }
         })
     }
@@ -308,9 +427,29 @@ function SecurityTab() {
                                 required
                                 autoComplete="new-password"
                                 disabled={isPending}
+                                value={newPassword}
+                                onChange={(e) => {
+                                    setNewPassword(e.target.value)
+                                    setResult(null)
+                                }}
                                 className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
                             />
                         </div>
+                        {newPassword && (
+                            <ul className="space-y-1.5 mt-2">
+                                {PASSWORD_RULES.map((rule) => {
+                                    const valid = rule.test(newPassword)
+                                    return (
+                                        <li key={rule.label} className="flex items-center gap-2">
+                                            <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`} />
+                                            <span className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
+                                                {rule.label}
+                                            </span>
+                                        </li>
+                                    )
+                                })}
+                            </ul>
+                        )}
                     </div>
 
                     <div className="space-y-2">

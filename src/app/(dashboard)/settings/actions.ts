@@ -12,6 +12,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
 
     const fullName = (formData.get('fullName') as string)?.trim()
     const username = (formData.get('username') as string)?.trim()
+    const avatarUrl = (formData.get('avatarUrl') as string)?.trim()
 
     if (!fullName) return { error: 'El nombre completo es obligatorio' }
     if (!username) return { error: 'El nombre de usuario es obligatorio' }
@@ -20,6 +21,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
         id: user.id,
         full_name: fullName,
         username,
+        avatar_url: avatarUrl || null,
     })
 
     if (error) return { error: error.message }
@@ -40,15 +42,26 @@ export async function updatePassword(formData: FormData): Promise<{ error?: stri
 
     if (!currentPassword) return { error: 'La contraseña actual es obligatoria' }
 
-    if (!newPassword || newPassword.length < 6) {
-        return { error: 'La nueva contraseña debe tener al menos 6 caracteres' }
+    if (!newPassword || newPassword.length <= 6) {
+        return { error: 'La nueva contraseña debe tener más de 6 caracteres' }
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+        return { error: 'La nueva contraseña debe tener al menos una mayúscula' }
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+        return { error: 'La nueva contraseña debe tener al menos un número' }
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(newPassword)) {
+        return { error: 'La nueva contraseña debe tener al menos un signo especial' }
     }
 
     if (newPassword !== confirmPassword) {
         return { error: 'Las contraseñas no coinciden' }
     }
 
-    // Verify current password by trying to sign in
     const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email!,
         password: currentPassword,
