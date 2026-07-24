@@ -2,10 +2,9 @@ import { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Video, Link as LinkIcon, Plus } from "lucide-react"
+import { Video, Link as LinkIcon, Plus, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Clock } from "./clock"
 
 export const metadata: Metadata = {
@@ -13,15 +12,6 @@ export const metadata: Metadata = {
     description: "Gestiona tus salas de reuniones P2P de alta calidad.",
     authors: [{ name: "Jhosep Argomedo" }],
     keywords: ["WebRTC", "React", "Ingeniería de Software", "Videoconferencias"],
-}
-
-function getInitials(name: string): string {
-    return name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
 }
 
 export default async function DashboardPage() {
@@ -43,7 +33,6 @@ export default async function DashboardPage() {
     }
 
     const firstName = profile.full_name.split(" ")[0]
-    const initials = getInitials(profile.full_name)
     const currentYear = new Date().getFullYear()
 
     return (
@@ -56,19 +45,11 @@ export default async function DashboardPage() {
                         </div>
                         <span className="font-semibold text-foreground tracking-tight text-lg">MeetMesh</span>
                     </div>
-                    <Link href="/profile" className="group">
-                        <div className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-muted/60 transition-colors">
-                            <Avatar className="w-9 h-9 ring-2 ring-border/60 group-hover:ring-brand/40 transition-all">
-                                <AvatarImage src={profile.avatar_url || ""} />
-                                <AvatarFallback className="text-xs font-semibold text-foreground bg-muted">
-                                    {initials}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="hidden sm:flex flex-col leading-tight">
-                                <span className="text-sm font-medium text-foreground">{profile.full_name}</span>
-                                <span className="text-xs text-muted-foreground">@{profile.username}</span>
-                            </div>
-                        </div>
+                    <Link
+                        href="/settings"
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
+                    >
+                        <Settings className="w-5 h-5" />
                     </Link>
                 </div>
             </nav>
