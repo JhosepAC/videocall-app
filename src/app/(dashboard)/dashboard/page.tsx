@@ -26,9 +26,13 @@ export default async function DashboardPage() {
     // Get profile for personalized greeting
     const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, username")
         .eq("id", user.id)
         .single()
+
+    if (!profile?.full_name || !profile?.username) {
+        redirect("/complete-profile")
+    }
 
     const firstName = profile?.full_name?.split(" ")[0] || "Usuario"
 
