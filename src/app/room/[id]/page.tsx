@@ -3,8 +3,8 @@ import { ThemeProvider } from '@/components/theme/theme-provider'
 import RoomClient from './RoomClient'
 
 export const metadata: Metadata = {
-    title: 'Sala de Reunión | MeetMesh',
-    description: 'Videoconferencia P2P segura. Comunicación directa en tiempo real.',
+    title: 'Meeting Room | MeetMesh',
+    description: 'Secure P2P video conference. Direct real-time communication.',
 }
 
 export default function RoomPage({ params }: { params: { id: string } }) {

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, Lock, Loader2, CircleAlert } from 'lucide-react'
+import { useI18n } from '@/components/i18n/i18n-provider'
 
 type FieldError = 'email' | 'form'
 
@@ -14,17 +15,14 @@ type ClientErrors = {
     email?: string
 }
 
-function getErrorConfig(code: string): { message: string; field: FieldError } | null {
-    const map: Record<string, { message: string; field: FieldError }> = {
-        empty_email: { message: 'El correo electrónico es obligatorio', field: 'email' },
-        invalid_email: { message: 'Ingresa un correo electrónico válido', field: 'email' },
-        invalid_credentials: { message: 'Correo o contraseña incorrectos', field: 'form' },
-        email_not_confirmed: {
-            message: 'Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada',
-            field: 'form',
-        },
-        rate_limited: { message: 'Demasiados intentos. Intenta de nuevo en unos minutos', field: 'form' },
-        server_error: { message: 'Error del servidor. Intenta de nuevo más tarde', field: 'form' },
+function getErrorConfig(code: string): { code: string; field: FieldError } | null {
+    const map: Record<string, { code: string; field: FieldError }> = {
+        empty_email: { code: 'errors.empty_email', field: 'email' },
+        invalid_email: { code: 'errors.invalid_email', field: 'email' },
+        invalid_credentials: { code: 'errors.invalid_credentials', field: 'form' },
+        email_not_confirmed: { code: 'errors.email_not_confirmed', field: 'form' },
+        rate_limited: { code: 'errors.rate_limited', field: 'form' },
+        server_error: { code: 'errors.server_error', field: 'form' },
     }
 
     return map[code] ?? null
@@ -35,14 +33,15 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function validateClient(email: string): ClientErrors | null {
     const errors: ClientErrors = {}
     if (!email) {
-        errors.email = 'El correo electrónico es obligatorio'
+        errors.email = 'errors.empty_email'
     } else if (!EMAIL_REGEX.test(email)) {
-        errors.email = 'Ingresa un correo electrónico válido'
+        errors.email = 'errors.invalid_email'
     }
     return Object.keys(errors).length > 0 ? errors : null
 }
 
 export default function LoginPage() {
+    const { t } = useI18n()
     const [isPending, startTransition] = useTransition()
     const [serverError, setServerError] = useState<string | null>(null)
     const [clientErrors, setClientErrors] = useState<ClientErrors | null>(null)
@@ -80,8 +79,8 @@ export default function LoginPage() {
     }
 
     const serverConfig = serverError ? getErrorConfig(serverError) : null
-    const serverEmailError = serverConfig?.field === 'email' ? serverConfig.message : null
-    const serverFormError = serverConfig?.field === 'form' ? serverConfig.message : null
+    const serverEmailError = serverConfig?.field === 'email' ? serverConfig.code : null
+    const serverFormError = serverConfig?.field === 'form' ? serverConfig.code : null
     const clientEmailError = clientErrors?.email ?? null
 
     const emailError = clientEmailError ?? serverEmailError
@@ -92,14 +91,14 @@ export default function LoginPage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
                     <Lock className="w-6 h-6 text-brand" />
                 </div>
-                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Bienvenido de nuevo</h1>
-                <p className="text-sm text-muted-foreground">Ingresa tus credenciales para continuar</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('auth.login.heading')}</h1>
+                <p className="text-sm text-muted-foreground">{t('auth.login.subtitle')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-foreground/80">
-                        Correo Electrónico
+                        {t('auth.login.email_label')}
                     </Label>
                     <div className="relative">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -107,7 +106,7 @@ export default function LoginPage() {
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="correo@ejemplo.com"
+                            placeholder={t('auth.login.email_placeholder')}
                             autoComplete="email"
                             disabled={isPending}
                             onChange={() => clearError('email')}
@@ -118,14 +117,14 @@ export default function LoginPage() {
                     {emailError && (
                         <p className="text-xs text-destructive flex items-center gap-1.5 mt-1" role="alert">
                             <CircleAlert className="w-3 h-3 shrink-0" />
-                            <span>{emailError}</span>
+                            <span>{t(emailError)}</span>
                         </p>
                     )}
                 </div>
 
                 <div className="space-y-2">
                     <Label htmlFor="password" className="text-sm font-medium text-foreground/80">
-                        Contraseña
+                        {t('auth.login.password_label')}
                     </Label>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -146,7 +145,7 @@ export default function LoginPage() {
                             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
                             tabIndex={-1}
                         >
-                            ¿Olvidaste tu contraseña?
+                            {t('auth.login.forgot_password')}
                         </Link>
                     </div>
                 </div>
@@ -157,7 +156,7 @@ export default function LoginPage() {
                         role="alert"
                     >
                         <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{serverFormError}</span>
+                        <span>{t(serverFormError)}</span>
                     </div>
                 )}
 
@@ -169,21 +168,21 @@ export default function LoginPage() {
                     {isPending ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Iniciando sesión...</span>
+                            <span>{t('auth.login.signing_in')}</span>
                         </>
                     ) : (
-                        'Iniciar Sesión'
+                        t('auth.login.sign_in')
                     )}
                 </Button>
             </form>
 
             <div className="text-center text-sm text-muted-foreground border-t border-border/40 pt-6">
-                ¿No tienes una cuenta?{' '}
+                {t('auth.login.no_account')}{' '}
                 <Link
                     href="/register"
                     className="text-brand hover:text-brand-hover font-medium underline underline-offset-4 transition-colors"
                 >
-                    Regístrate aquí
+                    {t('auth.login.register_link')}
                 </Link>
             </div>
         </div>

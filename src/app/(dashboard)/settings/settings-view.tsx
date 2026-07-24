@@ -7,16 +7,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useTheme } from '@/components/theme/theme-provider'
+import { useI18n } from '@/components/i18n/i18n-provider'
 import { updateProfile, updatePassword, savePreferences, signOut } from './actions'
 
 type Tab = 'account' | 'profile' | 'preferences' | 'security'
 type Lang = 'es' | 'en'
 
-const PASSWORD_RULES = [
-    { label: 'Más de 6 caracteres', test: (p: string) => p.length > 6 },
-    { label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
-    { label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
-    { label: 'Al menos un signo especial', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
+const PASSWORD_RULES: { labelKey: string; test: (p: string) => boolean }[] = [
+    { labelKey: 'password_rules.min_chars', test: (p: string) => p.length > 6 },
+    { labelKey: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p) },
+    { labelKey: 'password_rules.number', test: (p: string) => /[0-9]/.test(p) },
+    { labelKey: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
 ]
 
 interface ProfileData {
@@ -39,11 +40,11 @@ function getInitials(name: string): string {
         .slice(0, 2)
 }
 
-const TABS: { key: Tab; label: string; icon: typeof User }[] = [
-    { key: 'account', label: 'Cuenta', icon: Settings },
-    { key: 'profile', label: 'Perfil', icon: User },
-    { key: 'preferences', label: 'Preferencias', icon: Shield },
-    { key: 'security', label: 'Seguridad', icon: Lock },
+const TABS: { key: Tab; labelKey: string; icon: typeof User }[] = [
+    { key: 'account', labelKey: 'settings.tabs.account', icon: Settings },
+    { key: 'profile', labelKey: 'settings.tabs.profile', icon: User },
+    { key: 'preferences', labelKey: 'settings.tabs.preferences', icon: Shield },
+    { key: 'security', labelKey: 'settings.tabs.security', icon: Lock },
 ]
 
 function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof User; label: string; onClick: () => void }) {
@@ -63,6 +64,7 @@ function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; ic
 
 export function SettingsView({ email, profile }: Props) {
     const [tab, setTab] = useState<Tab>('account')
+    const { t } = useI18n()
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
@@ -70,19 +72,19 @@ export function SettingsView({ email, profile }: Props) {
                 <a
                     href="/dashboard"
                     className="mt-1 w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shrink-0"
-                    aria-label="Volver al dashboard"
+                    aria-label={t('nav.back_to_dashboard')}
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </a>
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground tracking-tight">Configuración</h1>
-                    <p className="text-sm text-muted-foreground">Administra tu cuenta y preferencias</p>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('settings.heading')}</h1>
+                    <p className="text-sm text-muted-foreground">{t('settings.subtitle')}</p>
                 </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-1.5 pb-4 mb-8 border-b border-border/50">
-                {TABS.map((t) => (
-                    <TabButton key={t.key} active={tab === t.key} icon={t.icon} label={t.label} onClick={() => setTab(t.key)} />
+                {TABS.map((tabDef) => (
+                    <TabButton key={tabDef.key} active={tab === tabDef.key} icon={tabDef.icon} label={t(tabDef.labelKey)} onClick={() => setTab(tabDef.key)} />
                 ))}
             </div>
 
@@ -95,6 +97,7 @@ export function SettingsView({ email, profile }: Props) {
 }
 
 function AccountTab({ email }: { email: string }) {
+    const { t } = useI18n()
     const [isPending, startTransition] = useTransition()
     const [copied, setCopied] = useState(false)
 
@@ -107,9 +110,9 @@ function AccountTab({ email }: { email: string }) {
     return (
         <div className="space-y-6">
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Correo electrónico</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.account.email_title')}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                    Este es el correo asociado a tu cuenta. No se puede modificar.
+                    {t('settings.account.email_desc')}
                 </p>
                 <div className="flex items-center gap-3 rounded-xl bg-muted/50 border border-border/40 px-4 py-3">
                     <Mail className="w-5 h-5 text-muted-foreground shrink-0" />
@@ -117,7 +120,7 @@ function AccountTab({ email }: { email: string }) {
                     <button
                         onClick={handleCopy}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0 cursor-pointer"
-                        aria-label="Copiar correo"
+                        aria-label={t('settings.account.copy_email')}
                     >
                         {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                     </button>
@@ -125,9 +128,9 @@ function AccountTab({ email }: { email: string }) {
             </div>
 
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Cerrar sesión</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.account.sign_out_title')}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                    Sal de tu cuenta en este dispositivo.
+                    {t('settings.account.sign_out_desc')}
                 </p>
                 <form
                     onSubmit={(e) => {
@@ -148,7 +151,7 @@ function AccountTab({ email }: { email: string }) {
                         ) : (
                             <LogOut className="w-4 h-4" />
                         )}
-                        <span>Cerrar sesión</span>
+                        <span>{t('settings.account.sign_out')}</span>
                     </Button>
                 </form>
             </div>
@@ -157,6 +160,7 @@ function AccountTab({ email }: { email: string }) {
 }
 
 function ProfileTab({ profile }: { profile: ProfileData }) {
+    const { t } = useI18n()
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
     const [fullName, setFullName] = useState(profile.full_name)
@@ -197,7 +201,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label htmlFor="fullName" className="text-card-foreground/80">Nombre Completo</Label>
+                                <Label htmlFor="fullName" className="text-card-foreground/80">{t('settings.profile.full_name_label')}</Label>
                                 <div className="relative">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                                     <Input
@@ -205,14 +209,14 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                         name="fullName"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        placeholder="Ej. Jhosep Argomedo"
+                                        placeholder={t('settings.profile.full_name_placeholder')}
                                         disabled={isPending}
                                         className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
                                     />
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="username" className="text-card-foreground/80">Nombre de Usuario</Label>
+                                <Label htmlFor="username" className="text-card-foreground/80">{t('settings.profile.username_label')}</Label>
                                 <div className="relative">
                                     <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                                     <Input
@@ -220,7 +224,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                         name="username"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="usuario_dev"
+                                        placeholder={t('settings.profile.username_placeholder')}
                                         disabled={isPending}
                                         className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
                                     />
@@ -229,7 +233,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="avatarUrl" className="text-card-foreground/80">URL del Avatar</Label>
+                            <Label htmlFor="avatarUrl" className="text-card-foreground/80">{t('settings.profile.avatar_url_label')}</Label>
                             <div className="relative">
                                 <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                                 <Input
@@ -237,7 +241,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                     name="avatarUrl"
                                     value={avatarUrl}
                                     onChange={(e) => setAvatarUrl(e.target.value)}
-                                    placeholder="https://ejemplo.com/avatar.jpg"
+                                    placeholder={t('settings.profile.avatar_url_placeholder')}
                                     disabled={isPending}
                                     className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
                                 />
@@ -254,7 +258,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                         {result?.success && (
                             <div className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20" role="status">
                                 <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-                                <span>Perfil actualizado correctamente</span>
+                                <span>{t('settings.profile.success')}</span>
                             </div>
                         )}
 
@@ -265,7 +269,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                 className="bg-brand hover:bg-brand-hover text-brand-foreground shadow-md rounded-xl"
                             >
                                 {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                                Guardar Cambios
+                                {t('settings.profile.save')}
                             </Button>
                         </div>
                     </form>
@@ -277,11 +281,12 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 
 function PreferencesTab() {
     const { theme, setTheme } = useTheme()
+    const { t, locale, setLocale } = useI18n()
     const [lang, setLang] = useState<Lang>(() => {
         if (typeof window !== 'undefined') {
-            return (localStorage.getItem('lang') as Lang) || 'es'
+            return (localStorage.getItem('lang') as Lang) || 'en'
         }
-        return 'es'
+        return 'en'
     })
     const [saving, setSaving] = useState(false)
 
@@ -292,30 +297,29 @@ function PreferencesTab() {
 
     async function handleLangChange(l: Lang) {
         setLang(l)
-        localStorage.setItem('lang', l)
-        document.documentElement.setAttribute('lang', l)
+        setLocale(l)
         setSaving(true)
         await savePreferences(theme, l)
         setSaving(false)
     }
 
-    const themeOptions: { value: 'light' | 'dark' | 'system'; label: string; icon: typeof Sun }[] = [
-        { value: 'light', label: 'Claro', icon: Sun },
-        { value: 'dark', label: 'Oscuro', icon: Moon },
-        { value: 'system', label: 'Sistema', icon: Monitor },
+    const themeOptions: { value: 'light' | 'dark' | 'system'; labelKey: string; icon: typeof Sun }[] = [
+        { value: 'light', labelKey: 'settings.preferences.light', icon: Sun },
+        { value: 'dark', labelKey: 'settings.preferences.dark', icon: Moon },
+        { value: 'system', labelKey: 'settings.preferences.system', icon: Monitor },
     ]
 
-    const langOptions: { value: Lang; label: string }[] = [
-        { value: 'es', label: 'Español' },
-        { value: 'en', label: 'English' },
+    const langOptions: { value: Lang; labelKey: string }[] = [
+        { value: 'es', labelKey: 'settings.preferences.spanish' },
+        { value: 'en', labelKey: 'settings.preferences.english' },
     ]
 
     return (
         <div className="max-w-lg space-y-6">
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Tema</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.preferences.theme_title')}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                    Personaliza la apariencia de la aplicación.
+                    {t('settings.preferences.theme_desc')}
                 </p>
                 <div className="flex gap-2">
                     {themeOptions.map((opt) => {
@@ -331,7 +335,7 @@ function PreferencesTab() {
                                 }`}
                             >
                                 <Icon className={`w-5 h-5 ${active ? 'text-brand' : ''}`} />
-                                {opt.label}
+                                {t(opt.labelKey)}
                             </button>
                         )
                     })}
@@ -339,9 +343,9 @@ function PreferencesTab() {
             </div>
 
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Idioma</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.preferences.language_title')}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                    Selecciona el idioma de la interfaz.
+                    {t('settings.preferences.language_desc')}
                 </p>
                 <div className="flex gap-2 items-center">
                     {langOptions.map((opt) => {
@@ -357,7 +361,7 @@ function PreferencesTab() {
                                 }`}
                             >
                                 <Languages className={`w-4 h-4 ${active ? 'text-brand' : ''}`} />
-                                {opt.label}
+                                {t(opt.labelKey)}
                             </button>
                         )
                     })}
@@ -368,6 +372,7 @@ function PreferencesTab() {
 }
 
 function SecurityTab() {
+    const { t } = useI18n()
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
     const [newPassword, setNewPassword] = useState('')
@@ -388,15 +393,15 @@ function SecurityTab() {
     return (
         <div className="max-w-lg">
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm p-4 sm:p-6">
-                <h2 className="text-lg font-semibold text-foreground mb-1">Cambiar contraseña</h2>
+                <h2 className="text-lg font-semibold text-foreground mb-1">{t('settings.security.title')}</h2>
                 <p className="text-sm text-muted-foreground mb-6">
-                    Actualiza tu contraseña periódicamente para mantener tu cuenta segura.
+                    {t('settings.security.desc')}
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
                     <div className="space-y-2">
                         <Label htmlFor="currentPassword" className="text-sm font-medium text-foreground/80">
-                            Contraseña Actual
+                            {t('settings.security.current_password_label')}
                         </Label>
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -404,7 +409,7 @@ function SecurityTab() {
                                 id="currentPassword"
                                 name="currentPassword"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder={t('common.placeholder_password')}
                                 required
                                 autoComplete="current-password"
                                 disabled={isPending}
@@ -415,7 +420,7 @@ function SecurityTab() {
 
                     <div className="space-y-2">
                         <Label htmlFor="newPassword" className="text-sm font-medium text-foreground/80">
-                            Nueva Contraseña
+                            {t('settings.security.new_password_label')}
                         </Label>
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -423,7 +428,7 @@ function SecurityTab() {
                                 id="newPassword"
                                 name="newPassword"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder={t('common.placeholder_password')}
                                 required
                                 autoComplete="new-password"
                                 disabled={isPending}
@@ -440,10 +445,10 @@ function SecurityTab() {
                                 {PASSWORD_RULES.map((rule) => {
                                     const valid = rule.test(newPassword)
                                     return (
-                                        <li key={rule.label} className="flex items-center gap-2">
+                                        <li key={rule.labelKey} className="flex items-center gap-2">
                                             <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`} />
                                             <span className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
-                                                {rule.label}
+                                                {t(rule.labelKey)}
                                             </span>
                                         </li>
                                     )
@@ -454,7 +459,7 @@ function SecurityTab() {
 
                     <div className="space-y-2">
                         <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground/80">
-                            Confirmar Nueva Contraseña
+                            {t('settings.security.confirm_new_password_label')}
                         </Label>
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -462,7 +467,7 @@ function SecurityTab() {
                                 id="confirmPassword"
                                 name="confirmPassword"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder={t('common.placeholder_password')}
                                 required
                                 autoComplete="new-password"
                                 disabled={isPending}
@@ -481,7 +486,7 @@ function SecurityTab() {
                     {result?.success && (
                         <div className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20" role="status">
                             <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-                            <span>Contraseña actualizada correctamente</span>
+                            <span>{t('settings.security.success')}</span>
                         </div>
                     )}
 
@@ -493,7 +498,7 @@ function SecurityTab() {
                         {isPending ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                            'Actualizar Contraseña'
+                            t('settings.security.update')
                         )}
                     </Button>
                 </form>

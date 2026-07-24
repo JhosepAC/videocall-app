@@ -9,16 +9,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { User, AtSign, Link2, Loader2, CircleAlert } from 'lucide-react'
+import { useI18n } from '@/components/i18n/i18n-provider'
 
 const ERROR_MAP: Record<string, string> = {
-    not_authenticated: 'Debes iniciar sesión para completar tu perfil',
-    empty_full_name: 'El nombre completo es obligatorio',
-    empty_username: 'El nombre de usuario es obligatorio',
-    empty_avatar_url: 'La URL del avatar es obligatoria',
-    server_error: 'Error del servidor. Intenta de nuevo más tarde.',
+    not_authenticated: 'errors.not_authenticated',
+    empty_full_name: 'errors.empty_full_name',
+    empty_username: 'errors.empty_username',
+    empty_avatar_url: 'errors.empty_avatar_url',
+    server_error: 'errors.server_error',
 }
 
 export default function CompleteProfilePage() {
+    const { t } = useI18n()
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [serverError, setServerError] = useState<string | null>(null)
@@ -81,7 +83,7 @@ export default function CompleteProfilePage() {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="w-8 h-8 animate-spin mb-4" />
-                <p className="text-sm">Cargando...</p>
+                <p className="text-sm">{t('auth.complete_profile.loading')}</p>
             </div>
         )
     }
@@ -94,10 +96,10 @@ export default function CompleteProfilePage() {
         <div className="flex flex-col space-y-8 text-foreground">
             <div className="text-center space-y-2">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                    Completa tu perfil
+                    {t('auth.complete_profile.heading')}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                    Configura tu identidad para las salas de videoconferencia
+                    {t('auth.complete_profile.subtitle')}
                 </p>
             </div>
 
@@ -116,10 +118,10 @@ export default function CompleteProfilePage() {
                     </div>
                     <div className="space-y-1">
                         <h2 className="text-xl font-bold text-card-foreground">
-                            {fullName || 'Nombre Completo'}
+                            {fullName || t('common.full_name')}
                         </h2>
                         <p className="text-sm text-muted-foreground">
-                            @{username || 'username'}
+                            @{username || t('common.username')}
                         </p>
                     </div>
                 </div>
@@ -128,7 +130,7 @@ export default function CompleteProfilePage() {
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 <div className="space-y-2">
                     <Label htmlFor="full_name" className="text-sm font-medium text-foreground/80">
-                        Nombre Completo
+                        {t('auth.complete_profile.full_name_label')}
                     </Label>
                     <div className="relative">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -136,7 +138,7 @@ export default function CompleteProfilePage() {
                             id="full_name"
                             name="full_name"
                             type="text"
-                            placeholder="Ej. Jhosep Argomedo"
+                            placeholder={t('auth.complete_profile.full_name_placeholder')}
                             autoComplete="name"
                             disabled={isPending}
                             value={fullName}
@@ -151,7 +153,7 @@ export default function CompleteProfilePage() {
 
                 <div className="space-y-2">
                     <Label htmlFor="username" className="text-sm font-medium text-foreground/80">
-                        Nombre de Usuario
+                        {t('auth.complete_profile.username_label')}
                     </Label>
                     <div className="relative">
                         <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -159,7 +161,7 @@ export default function CompleteProfilePage() {
                             id="username"
                             name="username"
                             type="text"
-                            placeholder="usuario_dev"
+                            placeholder={t('auth.complete_profile.username_placeholder')}
                             autoComplete="username"
                             disabled={isPending}
                             value={username}
@@ -174,7 +176,7 @@ export default function CompleteProfilePage() {
 
                 <div className="space-y-2">
                     <Label htmlFor="avatar_url" className="text-sm font-medium text-foreground/80">
-                        URL del Avatar
+                        {t('auth.complete_profile.avatar_url_label')}
                     </Label>
                     <div className="relative">
                         <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -182,7 +184,7 @@ export default function CompleteProfilePage() {
                             id="avatar_url"
                             name="avatar_url"
                             type="url"
-                            placeholder="https://ejemplo.com/avatar.jpg"
+                            placeholder={t('auth.complete_profile.avatar_url_placeholder')}
                             disabled={isPending}
                             value={avatarUrl}
                             onChange={(e) => {
@@ -200,7 +202,7 @@ export default function CompleteProfilePage() {
                         role="alert"
                     >
                         <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{ERROR_MAP[serverError] || serverError}</span>
+                        <span>{t(ERROR_MAP[serverError] || serverError)}</span>
                     </div>
                 )}
 
@@ -212,10 +214,10 @@ export default function CompleteProfilePage() {
                     {isPending ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Guardando...</span>
+                            <span>{t('auth.complete_profile.saving')}</span>
                         </>
                     ) : (
-                        'Ir al Dashboard'
+                        t('auth.complete_profile.go_to_dashboard')
                     )}
                 </Button>
             </form>

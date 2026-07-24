@@ -1,9 +1,13 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ShieldCheck, ArrowRight } from 'lucide-react'
 import CursorGrid from '@/components/CursorGrid/CursorGrid'
+import { useI18n } from '@/components/i18n/i18n-provider'
 
 export default function Home() {
+    const { t } = useI18n()
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden p-6">
             <CursorGrid
@@ -31,22 +35,22 @@ export default function Home() {
 
                 {/* Título Principal con tipografía más impactante */}
                 <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] text-foreground">
-                    Videoconferencias <br className="hidden sm:inline" />
+                    {t('landing.title')} <br className="hidden sm:inline" />
                     <span className="bg-gradient-to-r from-brand via-brand-secondary to-brand bg-clip-text text-transparent">
-            Privadas, Seguras y Libres
+            {t('landing.subtitle')}
           </span>
                 </h1>
 
                 {/* Subtítulo */}
                 <p className="max-w-xl text-muted-foreground text-base sm:text-lg leading-relaxed font-normal">
-                    Conéctate directamente con quien quieras. Sin intermediarios, sin límites de tiempo y con total privacidad.
+                    {t('landing.description')}
                 </p>
 
                 {/* Botones con cursor-pointer y mejores microinteracciones */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 w-full sm:w-auto">
                     <Link href="/login" className="w-full sm:w-auto cursor-pointer">
                         <Button className="w-full sm:w-auto cursor-pointer bg-brand hover:bg-brand-hover text-brand-foreground px-8 py-6 rounded-2xl text-base font-medium shadow-lg shadow-brand/20 hover:shadow-brand/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">
-                            Iniciar Sesión
+                            {t('landing.login')}
                         </Button>
                     </Link>
 
@@ -55,7 +59,7 @@ export default function Home() {
                             variant="outline"
                             className="w-full sm:w-auto cursor-pointer group border-border/60 bg-background/40 hover:bg-accent/50 text-foreground px-8 py-6 rounded-2xl text-base font-medium backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                         >
-                            <span>Crear Cuenta Gratis</span>
+                            <span>{t('landing.create_account')}</span>
                             <ArrowRight className="w-4 h-4 ml-2 opacity-60 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
                         </Button>
                     </Link>

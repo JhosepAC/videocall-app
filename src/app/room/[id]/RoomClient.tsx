@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
 import { useWebRTC } from '@/hooks/useWebRTC'
 
@@ -13,6 +14,7 @@ interface RoomClientProps {
 // Sub-component for remote peers to handle their HTMLMediaElement refs safely
 const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
+    const { t } = useI18n()
 
     useEffect(() => {
         if (videoRef.current && stream) {
@@ -29,7 +31,7 @@ const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
                 className="w-full h-full object-cover"
             />
             <div className="absolute bottom-3 left-3 bg-overlay/60 backdrop-blur-md px-2.5 py-1 rounded-md border border-glass/10 text-xs font-medium text-foreground">
-                Participante
+                {t('room.participant')}
             </div>
         </div>
     )
@@ -47,6 +49,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         toggleVideo,
     } = useLocalMediaStream()
 
+    const { t } = useI18n()
+
     // 2. Initialize WebRTC Signaling engine ONLY when localStream is ready
     const { remoteStreams } = useWebRTC(roomId, localStream)
 
@@ -62,7 +66,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen text-foreground p-4">
                 <Loader2 className="w-12 h-12 text-brand animate-spin mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">Iniciando dispositivos...</h2>
+                <h2 className="text-2xl font-semibold mb-2">{t('room.loading_devices')}</h2>
             </div>
         )
     }
@@ -72,7 +76,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
             <div className="flex flex-col items-center justify-center min-h-screen text-foreground p-4">
                 <div className="bg-destructive/10 border border-destructive/20 p-8 rounded-3xl max-w-md text-center">
                     <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">Error de Hardware</h2>
+                    <h2 className="text-2xl font-bold mb-2">{t('room.hardware_error')}</h2>
                     <p className="text-muted-foreground mb-6">{errorMessage}</p>
                 </div>
             </div>
@@ -90,11 +94,11 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         <div className="flex flex-col h-screen p-4 md:p-6 bg-background">
             <header className="flex justify-between items-center mb-4 bg-card/50 backdrop-blur-md p-4 rounded-2xl border border-glass/5">
                 <div>
-                    <h1 className="text-xl font-bold text-foreground">Sala de Reunión</h1>
-                    <p className="text-sm text-muted-foreground font-mono select-all">ID: {roomId}</p>
+                    <h1 className="text-xl font-bold text-foreground">{t('room.room_header')}</h1>
+                    <p className="text-sm text-muted-foreground font-mono select-all">{t('room.room_id')} {roomId}</p>
                 </div>
                 <Button variant="destructive" className="bg-destructive hover:bg-destructive/80 shadow-lg shadow-destructive/20">
-                    Abandonar
+                    {t('room.leave')}
                 </Button>
             </header>
 
@@ -120,7 +124,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                             </div>
                         )}
                         <div className="absolute bottom-3 left-3 bg-brand/90 backdrop-blur-md px-2.5 py-1 rounded-md text-xs font-medium text-brand-foreground shadow-md">
-                            Tú (Local)
+                            {t('room.you_local')}
                         </div>
 
                         {/* Local Controls Toolbar */}

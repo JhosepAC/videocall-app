@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme/theme-provider'
 import { SettingsView } from './settings-view'
 
 export const metadata: Metadata = {
-    title: 'Configuración | MeetMesh',
+    title: 'Settings | MeetMesh',
 }
 
 export default async function SettingsPage() {

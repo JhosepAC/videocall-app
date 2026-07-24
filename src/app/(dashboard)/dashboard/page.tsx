@@ -9,10 +9,10 @@ import { ThemeProvider } from "@/components/theme/theme-provider"
 import { Clock } from "./clock"
 
 export const metadata: Metadata = {
-    title: "Dashboard | Plataforma de Videoconferencias",
-    description: "Gestiona tus salas de reuniones P2P de alta calidad.",
+    title: "Dashboard | Video Conference Platform",
+    description: "Manage your high-quality P2P meeting rooms.",
     authors: [{ name: "Jhosep Argomedo" }],
-    keywords: ["WebRTC", "React", "Ingeniería de Software", "Videoconferencias"],
+    keywords: ["WebRTC", "React", "Software Engineering", "Video Conferencing"],
 }
 
 export default async function DashboardPage() {
@@ -45,7 +45,7 @@ export default async function DashboardPage() {
                         <div className="w-9 h-9 rounded-xl bg-brand/10 flex items-center justify-center border border-brand/20">
                             <Video className="w-5 h-5 text-brand" />
                         </div>
-                        <span className="font-semibold text-foreground tracking-tight text-lg">MeetMesh</span>
+                            <span className="font-semibold text-foreground tracking-tight text-lg">{'MeetMesh'}</span>
                     </div>
                     <Link
                         href="/settings"
@@ -60,10 +60,10 @@ export default async function DashboardPage() {
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14">
                     <div className="space-y-1">
                         <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight">
-                            Hola, {firstName}
+                            Hello, {firstName}
                         </h1>
                         <p className="text-muted-foreground text-lg md:text-xl font-light">
-                            ¿Qué te gustaría hacer hoy?
+                            What would you like to do today?
                         </p>
                     </div>
                     <div className="shrink-0 text-right">
@@ -79,15 +79,15 @@ export default async function DashboardPage() {
                             <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-6 border border-brand/20">
                                 <Plus className="w-7 h-7 text-brand" />
                             </div>
-                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">Nueva reunión</h2>
+                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">New meeting</h2>
                             <p className="text-muted-foreground text-sm leading-relaxed">
-                                Inicia una sala al instante y comparte el enlace de invitación con los demás participantes.
+                                Start a room instantly and share the invitation link with other participants.
                             </p>
                         </div>
 
                         <form action="/api/create-room" method="POST" className="mt-6 relative z-10">
                             <Button type="submit" size="lg" className="w-full bg-brand hover:bg-brand/90 text-brand-foreground shadow-sm rounded-xl font-medium transition-transform active:scale-[0.98]">
-                                Iniciar ahora
+                                Start now
                             </Button>
                         </form>
                     </div>
@@ -99,9 +99,9 @@ export default async function DashboardPage() {
                             <div className="w-14 h-14 rounded-2xl bg-secondary/50 flex items-center justify-center mb-6 border border-border">
                                 <LinkIcon className="w-7 h-7 text-foreground/70" />
                             </div>
-                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">Unirse con código</h2>
+                            <h2 className="text-2xl font-semibold text-foreground mb-2 tracking-tight">Join with code</h2>
                             <p className="text-muted-foreground text-sm leading-relaxed">
-                                Ingresa el código de la sala o el enlace de la reunión a la que fuiste invitado.
+                                Enter the room code or the meeting link you were invited to.
                             </p>
                         </div>
 
@@ -112,12 +112,12 @@ export default async function DashboardPage() {
                         }}>
                             <Input
                                 name="roomCode"
-                                placeholder="Ej. abc-123-xyz"
+                                placeholder="e.g. abc-123-xyz"
                                 className="h-12 bg-background/50 border-border/60 focus-visible:ring-1 focus-visible:ring-brand rounded-xl shadow-inner"
                                 required
                             />
                             <Button type="submit" size="lg" variant="secondary" className="h-12 rounded-xl font-medium bg-secondary/80 hover:bg-secondary">
-                                Unirse
+                                Join
                             </Button>
                         </form>
                     </div>
@@ -126,11 +126,11 @@ export default async function DashboardPage() {
 
             <footer className="w-full border-t border-border/40 bg-background/40 backdrop-blur-sm mt-auto">
                 <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <p className="text-sm text-muted-foreground font-light">
-                        &copy; {currentYear} MeetMesh. Todos los derechos reservados.
+                        <p className="text-sm text-muted-foreground font-light">
+                        &copy; {currentYear} MeetMesh. All rights reserved.
                     </p>
                     <p className="text-sm text-muted-foreground font-light">
-                        Desarrollado por{" "}
+                        Developed by{" "}
                         <Link
                             href="https://jhosep-ac.pages.dev"
                             target="_blank"
