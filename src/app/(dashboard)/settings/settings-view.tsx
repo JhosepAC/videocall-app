@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect } from 'react'
-import { Settings, User, Shield, Lock, LogOut, AtSign, Link2, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages } from 'lucide-react'
+import { ArrowLeft, Settings, User, Shield, Lock, LogOut, AtSign, Link2, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,10 +66,14 @@ export function SettingsView({ email, profile }: Props) {
 
     return (
         <div className="max-w-4xl mx-auto px-6 py-10">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center border border-brand/20">
-                    <Settings className="w-5 h-5 text-brand" />
-                </div>
+            <div className="flex items-start gap-3 mb-8">
+                <a
+                    href="/dashboard"
+                    className="mt-1 w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shrink-0"
+                    aria-label="Volver al dashboard"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </a>
                 <div>
                     <h1 className="text-2xl font-bold text-foreground tracking-tight">Configuración</h1>
                     <p className="text-sm text-muted-foreground">Administra tu cuenta y preferencias</p>
@@ -112,7 +116,7 @@ function AccountTab({ email }: { email: string }) {
                     <span className="text-sm font-medium text-foreground flex-1 truncate">{email}</span>
                     <button
                         onClick={handleCopy}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0 cursor-pointer"
                         aria-label="Copiar correo"
                     >
                         {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
