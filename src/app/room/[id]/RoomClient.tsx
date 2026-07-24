@@ -55,6 +55,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [now, setNow] = useState(new Date())
     const [fullName, setFullName] = useState('')
     const [username, setUsername] = useState('')
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -67,13 +68,14 @@ export default function RoomClient({ roomId }: RoomClientProps) {
             if (!user) return
             supabase
                 .from('profiles')
-                .select('full_name, username')
+                .select('full_name, username, avatar_url')
                 .eq('id', user.id)
                 .single()
                 .then(({ data }) => {
                     if (data) {
                         setFullName(data.full_name || '')
                         setUsername(data.username || '')
+                        setAvatarUrl(data.avatar_url || null)
                     }
                 })
         })
@@ -142,6 +144,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const displayName = fullName || 'You'
     const displayUsername = username ? `@${username}` : ''
+    const userInitial = displayName.charAt(0).toUpperCase()
 
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-background">
@@ -177,12 +180,24 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 isVideoStopped ? 'opacity-0' : 'opacity-100'
                             }`}
                         />
+
                         {isVideoStopped && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-card text-muted-foreground">
-                                <CameraOff className="w-12 h-12 mb-2 stroke-[1.5]" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
+                                {avatarUrl ? (
+                                    <img
+                                        src={avatarUrl}
+                                        alt={displayName}
+                                        className="w-40 h-40 md:w-60 md:h-60 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
+                                    />
+                                ) : (
+                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand text-3xl font-bold shadow-xl">
+                                        {userInitial !== 'Y' ? userInitial : <CameraOff className="w-10 h-10" />}
+                                    </div>
+                                )}
                             </div>
                         )}
-                        <div className="absolute bottom-3 left-3 bg-white px-3 py-1.5 rounded-lg shadow-md">
+
+                        <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md z-20">
                             <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
                             {displayUsername && (
                                 <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
