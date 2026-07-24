@@ -61,21 +61,21 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                     switch (err.name) {
                         case 'NotAllowedError':
                         case 'PermissionDeniedError':
-                            setErrorMessage('Permiso denegado. Por favor, permite el acceso a tu cámara y micrófono.')
+                            setErrorMessage('Permission denied. Please allow access to your camera and microphone.')
                             break
                         case 'NotFoundError':
                         case 'DevicesNotFoundError':
-                            setErrorMessage('No se encontró ninguna cámara o micrófono conectado.')
+                            setErrorMessage('No camera or microphone found connected.')
                             break
                         case 'NotReadableError':
                         case 'TrackStartError':
-                            setErrorMessage('Tu cámara o micrófono ya está siendo usado por otra aplicación.')
+                            setErrorMessage('Your camera or microphone is already being used by another application.')
                             break
                         default:
-                            setErrorMessage('Error al acceder a los dispositivos de medios.')
+                            setErrorMessage('Error accessing media devices.')
                     }
                 } else {
-                    setErrorMessage('Error desconocido al inicializar el hardware.')
+                    setErrorMessage('Unknown error initializing hardware.')
                 }
             }
         }

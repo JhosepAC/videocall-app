@@ -1,15 +1,21 @@
 import { Metadata } from 'next'
+import { ThemeProvider } from '@/components/theme/theme-provider'
+import { I18nProvider } from '@/components/i18n/i18n-provider'
 import RoomClient from './RoomClient'
 
 export const metadata: Metadata = {
-    title: 'Sala de Reunión | MeetMesh',
-    description: 'Videoconferencia P2P segura. Comunicación directa en tiempo real.',
+    title: 'Meeting Room | MeetMesh',
+    description: 'Secure P2P video conference. Direct real-time communication.',
 }
 
 export default function RoomPage({ params }: { params: { id: string } }) {
     return (
-        <div className="min-h-screen bg-background">
-            <RoomClient roomId={params.id} />
-        </div>
+        <ThemeProvider>
+            <I18nProvider>
+            <div className="min-h-screen bg-background">
+                <RoomClient roomId={params.id} />
+            </div>
+            </I18nProvider>
+        </ThemeProvider>
     )
 }

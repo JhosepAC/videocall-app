@@ -7,27 +7,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Mail, Lock, CheckCircle, CircleAlert, Loader2 } from 'lucide-react'
+import { useI18n } from '@/components/i18n/i18n-provider'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const PASSWORD_RULES = [
-    { label: 'Más de 6 caracteres', test: (p: string) => p.length > 6 },
-    { label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
-    { label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
-    { label: 'Al menos un signo especial', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
+    { label: 'password_rules.min_chars', test: (p: string) => p.length > 6 },
+    { label: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p) },
+    { label: 'password_rules.number', test: (p: string) => /[0-9]/.test(p) },
+    { label: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
 ]
 
 const ERROR_MAP: Record<string, string> = {
-    empty_email: 'El correo electrónico es obligatorio',
-    invalid_email: 'Ingresa un correo electrónico válido',
-    empty_password: 'La contraseña es obligatoria',
-    weak_password: 'La contraseña no cumple con los requisitos mínimos',
-    passwords_dont_match: 'Las contraseñas no coinciden',
-    email_already_registered: 'Este correo ya está registrado. Intenta iniciar sesión.',
-    server_error: 'Error del servidor. Intenta de nuevo más tarde.',
+    empty_email: 'errors.empty_email',
+    invalid_email: 'errors.invalid_email',
+    empty_password: 'errors.empty_password',
+    weak_password: 'errors.weak_password',
+    passwords_dont_match: 'errors.passwords_dont_match',
+    email_already_registered: 'errors.email_already_registered',
+    server_error: 'errors.server_error',
 }
 
 export default function RegisterPage() {
+    const { t } = useI18n()
     const [isPending, startTransition] = useTransition()
     const [serverError, setServerError] = useState<string | null>(null)
     const [password, setPassword] = useState('')
@@ -75,14 +77,14 @@ export default function RegisterPage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
                     <Lock className="w-6 h-6 text-brand" />
                 </div>
-                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Crear Cuenta</h1>
-                <p className="text-sm text-muted-foreground">Ingresa tus credenciales para crear una cuenta</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('auth.register.heading')}</h1>
+                <p className="text-sm text-muted-foreground">{t('auth.register.subtitle')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium text-foreground/80">
-                        Correo Electrónico
+                        {t('auth.register.email_label')}
                     </Label>
                     <div className="relative">
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -90,7 +92,7 @@ export default function RegisterPage() {
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="correo@ejemplo.com"
+                            placeholder={t('auth.register.email_placeholder')}
                             autoComplete="email"
                             disabled={isPending}
                             onChange={() => setServerError(null)}
@@ -101,7 +103,7 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
                     <Label htmlFor="password" className="text-sm font-medium text-foreground/80">
-                        Contraseña
+                        {t('auth.register.password_label')}
                     </Label>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -128,7 +130,7 @@ export default function RegisterPage() {
                                     <li key={rule.label} className="flex items-center gap-2">
                                         <CheckCircle className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`} />
                                         <span className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
-                                            {rule.label}
+                                            {t(rule.label)}
                                         </span>
                                     </li>
                                 )
@@ -139,7 +141,7 @@ export default function RegisterPage() {
 
                 <div className="space-y-2">
                     <Label htmlFor="confirm_password" className="text-sm font-medium text-foreground/80">
-                        Confirmar Contraseña
+                        {t('auth.register.confirm_password_label')}
                     </Label>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -161,7 +163,7 @@ export default function RegisterPage() {
                     {confirmPassword && password !== confirmPassword && (
                         <p className="text-xs text-destructive flex items-center gap-1.5 mt-1" role="alert">
                             <CircleAlert className="w-3 h-3 shrink-0" />
-                            <span>Las contraseñas no coinciden</span>
+                            <span>{t('errors.passwords_dont_match')}</span>
                         </p>
                     )}
                 </div>
@@ -172,7 +174,7 @@ export default function RegisterPage() {
                         role="alert"
                     >
                         <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{ERROR_MAP[serverError] || serverError}</span>
+                        <span>{t(ERROR_MAP[serverError] || serverError)}</span>
                     </div>
                 )}
 
@@ -184,21 +186,21 @@ export default function RegisterPage() {
                     {isPending ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Creando cuenta...</span>
+                            <span>{t('auth.register.creating_account')}</span>
                         </>
                     ) : (
-                        'Crear Cuenta'
+                        t('auth.register.create_account')
                     )}
                 </Button>
             </form>
 
             <div className="text-center text-sm text-muted-foreground border-t border-border/40 pt-6">
-                ¿Ya tienes una cuenta?{' '}
+                {t('auth.register.has_account')}{' '}
                 <Link
                     href="/login"
                     className="text-brand hover:text-brand-hover font-medium underline underline-offset-4 transition-colors"
                 >
-                    Inicia sesión aquí
+                    {t('auth.register.login_link')}
                 </Link>
             </div>
         </div>

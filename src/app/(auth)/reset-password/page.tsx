@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Lock, CheckCircle, LoaderCircle } from 'lucide-react'
 import Link from 'next/link'
+import { useI18n } from '@/components/i18n/i18n-provider'
 
 type View = 'loading' | 'form' | 'success' | 'invalid'
 
 export default function ResetPasswordPage() {
+    const { t } = useI18n()
     const [view, setView] = useState<View>('loading')
     const [password, setPassword] = useState('')
     const [confirm, setConfirm] = useState('')
@@ -31,11 +33,11 @@ export default function ResetPasswordPage() {
         setError('')
 
         if (password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres')
+            setError(t('auth.reset_password.error_min_length'))
             return
         }
         if (password !== confirm) {
-            setError('Las contraseñas no coinciden')
+            setError(t('auth.reset_password.error_mismatch'))
             return
         }
 
@@ -52,7 +54,7 @@ export default function ResetPasswordPage() {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <LoaderCircle className="w-8 h-8 animate-spin mb-4" />
-                <p className="text-sm">Verificando enlace...</p>
+                <p className="text-sm">{t('auth.reset_password.loading')}</p>
             </div>
         )
     }
@@ -64,14 +66,14 @@ export default function ResetPasswordPage() {
                     <Lock className="w-8 h-8 text-destructive" />
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold tracking-tight">Enlace inválido o expirado</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">{t('auth.reset_password.invalid_heading')}</h2>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                        El enlace de recuperación ya no es válido. Solicita uno nuevo.
+                        {t('auth.reset_password.invalid_message')}
                     </p>
                 </div>
                 <Link href="/forgot-password">
                     <Button className="bg-brand hover:bg-brand-hover text-brand-foreground rounded-xl px-6">
-                        Solicitar nuevo enlace
+                        {t('auth.reset_password.request_new')}
                     </Button>
                 </Link>
             </div>
@@ -85,14 +87,14 @@ export default function ResetPasswordPage() {
                     <CheckCircle className="w-8 h-8 text-brand" />
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold tracking-tight">Contraseña actualizada</h2>
+                    <h2 className="text-xl font-semibold tracking-tight">{t('auth.reset_password.success_heading')}</h2>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                        Tu contraseña se ha restablecido correctamente.
+                        {t('auth.reset_password.success_message')}
                     </p>
                 </div>
                 <Link href="/login">
                     <Button className="bg-brand hover:bg-brand-hover text-brand-foreground rounded-xl px-8 h-12 text-sm font-medium shadow-lg hover:shadow-brand/25 transition-all duration-300">
-                        Iniciar Sesión
+                        {t('auth.reset_password.sign_in')}
                     </Button>
                 </Link>
             </div>
@@ -105,13 +107,13 @@ export default function ResetPasswordPage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
                     <Lock className="w-6 h-6 text-brand" />
                 </div>
-                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Nueva contraseña</h1>
-                <p className="text-sm text-muted-foreground">Ingresa tu nueva contraseña</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('auth.reset_password.form_heading')}</h1>
+                <p className="text-sm text-muted-foreground">{t('auth.reset_password.form_subtitle')}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
                 <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium text-foreground/80">Nueva Contraseña</Label>
+                    <Label htmlFor="password" className="text-sm font-medium text-foreground/80">{t('auth.reset_password.new_password_label')}</Label>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
@@ -128,7 +130,7 @@ export default function ResetPasswordPage() {
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="confirm" className="text-sm font-medium text-foreground/80">Confirmar Contraseña</Label>
+                    <Label htmlFor="confirm" className="text-sm font-medium text-foreground/80">{t('auth.reset_password.confirm_password_label')}</Label>
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
@@ -152,7 +154,7 @@ export default function ResetPasswordPage() {
                 )}
 
                 <Button type="submit" className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl">
-                    Actualizar Contraseña
+                    {t('auth.reset_password.update')}
                 </Button>
             </form>
         </div>
