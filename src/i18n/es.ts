@@ -226,6 +226,8 @@ export const es: Translations = {
     sharing: 'Compartiendo',
     hide_people: 'Ocultar personas',
     show_people: 'Mostrar personas',
+    raise_hand: 'Levantar mano',
+    lower_hand: 'Bajar mano',
   },
 
   media_errors: {
