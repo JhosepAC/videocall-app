@@ -167,16 +167,24 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const screenTrack = screenStream?.getVideoTracks()[0] ?? null
 
     const { enhancedTrack } = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
-    const effectiveStream = enhanceConfig.enabled && enhancedTrack && localStream
-        ? new MediaStream([enhancedTrack, ...localStream.getAudioTracks()])
-        : localStream
 
     const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
         roomId,
-        effectiveStream,
+        localStream,
         screenTrack,
         { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
     )
+
+    useEffect(() => {
+        if (enhancedTrack && enhanceConfig.enabled) {
+            replaceVideoTrack(enhancedTrack)
+        } else if (!enhanceConfig.enabled && localStream) {
+            const original = localStream.getVideoTracks()[0]
+            if (original) {
+                replaceVideoTrack(original)
+            }
+        }
+    }, [enhancedTrack, enhanceConfig.enabled, localStream, replaceVideoTrack])
 
     useEffect(() => {
         if (screenVideoRef.current && screenStream) {
