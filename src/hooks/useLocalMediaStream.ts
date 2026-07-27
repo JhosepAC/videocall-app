@@ -4,12 +4,16 @@ export type StreamStatus = 'idle' | 'requesting' | 'ready' | 'error'
 
 interface UseLocalMediaStreamReturn {
     localStream: MediaStream | null
+    screenStream: MediaStream | null
     status: StreamStatus
     errorMessage: string | null
     isAudioMuted: boolean
     isVideoStopped: boolean
-    toggleAudio: () => void
-    toggleVideo: () => void
+    isScreenSharing: boolean
+    toggleAudio: () => boolean
+    toggleVideo: () => boolean
+    startScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => Promise<void>
+    stopScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => void
 }
 
 export function useLocalMediaStream(): UseLocalMediaStreamReturn {
@@ -18,71 +22,50 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false)
     const [isVideoStopped, setIsVideoStopped] = useState<boolean>(false)
+    const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false)
+    const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
 
-    // Ref to hold current stream across renders without causing re-triggering of effects
     const streamRef = useRef<MediaStream | null>(null)
+    const originalVideoTrackRef = useRef<MediaStreamTrack | null>(null)
 
     useEffect(() => {
         let isMounted = true
 
         const initMediaStream = async () => {
             try {
-                // Optimal constraints for WebRTC audio/video quality
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: 'user',
-                    },
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                    },
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                 })
 
                 if (!isMounted) {
-                    // Stop tracks if component unmounted before getUserMedia resolved
                     stream.getTracks().forEach((track) => track.stop())
                     return
                 }
 
                 streamRef.current = stream
+                originalVideoTrackRef.current = stream.getVideoTracks()[0]
                 setLocalStream(stream)
                 setStatus('ready')
             } catch (err: unknown) {
                 if (!isMounted) return
+                console.error('[MEDIA ERROR]', err)
 
-                console.error('[MEDIA ERROR] Failed to access local devices:', err)
-                setStatus('error')
-
-                // Detailed user-friendly error messages based on DOMException name
-                if (err instanceof DOMException) {
-                    switch (err.name) {
-                        case 'NotAllowedError':
-                        case 'PermissionDeniedError':
-                            setErrorMessage('Permission denied. Please allow access to your camera and microphone.')
-                            break
-                        case 'NotFoundError':
-                        case 'DevicesNotFoundError':
-                            setErrorMessage('No camera or microphone found connected.')
-                            break
-                        case 'NotReadableError':
-                        case 'TrackStartError':
-                            setErrorMessage('Your camera or microphone is already being used by another application.')
-                            break
-                        default:
-                            setErrorMessage('Error accessing media devices.')
-                    }
-                } else {
-                    setErrorMessage('Unknown error initializing hardware.')
+                try {
+                    const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                    streamRef.current = audioOnlyStream
+                    setLocalStream(audioOnlyStream)
+                    setIsVideoStopped(true)
+                    setStatus('ready')
+                } catch (audioErr) {
+                    setStatus('error')
+                    setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
                 }
             }
         }
 
         initMediaStream()
 
-        // Cleanup: Stop all tracks on unmount to release camera/mic hardware
         return () => {
             isMounted = false
             if (streamRef.current) {
@@ -92,7 +75,6 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
         }
     }, [])
 
-    // Toggle local audio track
     const toggleAudio = useCallback(() => {
         if (streamRef.current) {
             const audioTracks = streamRef.current.getAudioTracks()
@@ -100,11 +82,12 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 const nextState = !audioTracks[0].enabled
                 audioTracks[0].enabled = nextState
                 setIsAudioMuted(!nextState)
+                return !nextState
             }
         }
-    }, [])
+        return isAudioMuted
+    }, [isAudioMuted])
 
-    // Toggle local video track
     const toggleVideo = useCallback(() => {
         if (streamRef.current) {
             const videoTracks = streamRef.current.getVideoTracks()
@@ -112,17 +95,53 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 const nextState = !videoTracks[0].enabled
                 videoTracks[0].enabled = nextState
                 setIsVideoStopped(!nextState)
+                return !nextState
             }
         }
-    }, [])
+        return isVideoStopped
+    }, [isVideoStopped, isScreenSharing])
+
+    const startScreenShare = async (replaceTrackCallback: (track: MediaStreamTrack) => void) => {
+        try {
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+            const screenTrack = displayStream.getVideoTracks()[0]
+
+            replaceTrackCallback(screenTrack)
+            setScreenStream(displayStream)
+            setIsScreenSharing(true)
+
+            screenTrack.onended = () => {
+                stopScreenShare(replaceTrackCallback)
+            }
+
+        } catch (err) {
+            console.error("Error sharing screen", err)
+        }
+    }
+
+    const stopScreenShare = (replaceTrackCallback: (track: MediaStreamTrack) => void) => {
+        if (originalVideoTrackRef.current) {
+            replaceTrackCallback(originalVideoTrackRef.current)
+
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop())
+                setScreenStream(null)
+            }
+            setIsScreenSharing(false)
+        }
+    }
 
     return {
         localStream,
+        screenStream,
         status,
         errorMessage,
         isAudioMuted,
         isVideoStopped,
+        isScreenSharing,
         toggleAudio,
         toggleVideo,
+        startScreenShare,
+        stopScreenShare
     }
 }
