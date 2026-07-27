@@ -228,6 +228,17 @@ export const es: Translations = {
     show_people: 'Mostrar personas',
     raise_hand: 'Levantar mano',
     lower_hand: 'Bajar mano',
+    enhance_toggle: 'Activar mejora de vídeo',
+    enhance_title: 'Mejorar',
+    enhance_wb: 'Balance Blancos',
+    enhance_awb_auto: 'Balance Automático',
+    enhance_gamma: 'Gamma',
+    enhance_brightness: 'Brillo',
+    enhance_contrast: 'Contraste',
+    enhance_saturation: 'Saturación',
+    enhance_sharpness: 'Nitidez',
+    enhance_denoise: 'Reducir Ruido',
+    enhance_reset: 'Restablecer valores',
   },
 
   media_errors: {

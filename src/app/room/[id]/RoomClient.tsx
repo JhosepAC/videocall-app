@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
+import { useVideoEnhancer, DEFAULT_ENHANCEMENT } from '@/hooks/useVideoEnhancer'
+import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
 import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
 
@@ -75,6 +77,33 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
     )
 }
 
+const SliderControl = ({ label, value, min, max, step, onChange, icon }: {
+    label: string; value: number; min: number; max: number; step: number;
+    onChange: (v: number) => void; icon?: React.ReactNode | string
+}) => (
+    <div className="space-y-1">
+        <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+                {typeof icon === 'string' ? <span className="text-xs">{icon}</span> : icon}
+                {label}
+            </span>
+            <span className="font-mono tabular-nums text-muted-foreground/70">{value > 0 ? '+' : ''}{value.toFixed(2)}</span>
+        </div>
+        <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            onChange={e => onChange(parseFloat(e.target.value))}
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted-foreground/20 accent-brand
+                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand [&::-webkit-slider-thumb]:shadow-md
+                [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-125"
+        />
+    </div>
+)
+
 export default function RoomClient({ roomId }: RoomClientProps) {
     const router = useRouter()
     const {
@@ -107,6 +136,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
     const [gridPage, setGridPage] = useState(0)
     const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
+    const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({ ...DEFAULT_ENHANCEMENT })
+    const [showEnhancePanel, setShowEnhancePanel] = useState(false)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -135,9 +166,14 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const screenTrack = screenStream?.getVideoTracks()[0] ?? null
 
+    const { enhancedTrack } = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
+    const effectiveStream = enhanceConfig.enabled && enhancedTrack && localStream
+        ? new MediaStream([enhancedTrack, ...localStream.getAudioTracks()])
+        : localStream
+
     const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
         roomId,
-        localStream,
+        effectiveStream,
         screenTrack,
         { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
     )
@@ -738,6 +774,61 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                     </div>
 
                     <footer className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16 relative">
+                        {showEnhancePanel && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-4 w-80 z-50">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-semibold flex items-center gap-2">
+                                        <Palette className="w-4 h-4 text-brand" />
+                                        {t('room.enhance_title')}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={() => setEnhanceConfig(c => ({ ...c, enabled: !c.enabled }))}
+                                            className={`relative w-9 h-5 rounded-full transition-colors ${enhanceConfig.enabled ? 'bg-brand' : 'bg-muted-foreground/30'}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${enhanceConfig.enabled ? 'translate-x-4' : ''}`} />
+                                        </button>
+                                        <Button variant="ghost" size="icon" onClick={() => setShowEnhancePanel(false)} className="rounded-full w-7 h-7">
+                                            <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">{t('room.enhance_awb_auto')}</span>
+                                        <button
+                                            onClick={() => setEnhanceConfig(c => ({ ...c, autoWhiteBalance: !c.autoWhiteBalance }))}
+                                            className={`relative w-9 h-5 rounded-full transition-colors ${enhanceConfig.autoWhiteBalance ? 'bg-brand' : 'bg-muted-foreground/30'}`}
+                                        >
+                                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${enhanceConfig.autoWhiteBalance ? 'translate-x-4' : ''}`} />
+                                        </button>
+                                    </div>
+                                    <SliderControl label={t('room.enhance_wb')} value={enhanceConfig.whiteBalance} min={-1} max={1} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, whiteBalance: v }))}
+                                        icon={enhanceConfig.whiteBalance > 0.05 ? '☀️' : enhanceConfig.whiteBalance < -0.05 ? '❄️' : '⚪'} />
+                                    <SliderControl label={t('room.enhance_gamma')} value={enhanceConfig.gamma} min={0.5} max={2.5} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, gamma: v }))} icon="◐" />
+                                    <SliderControl label={t('room.enhance_brightness')} value={enhanceConfig.brightness} min={-0.5} max={0.5} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, brightness: v }))} icon={<Sun className="w-3 h-3" />} />
+                                    <SliderControl label={t('room.enhance_contrast')} value={enhanceConfig.contrast} min={0.5} max={2} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, contrast: v }))} icon="◐" />
+                                    <SliderControl label={t('room.enhance_saturation')} value={enhanceConfig.saturation} min={0} max={2} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, saturation: v }))} icon="🎨" />
+                                    <SliderControl label={t('room.enhance_sharpness')} value={enhanceConfig.sharpness} min={0} max={1.5} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, sharpness: v }))} icon="⬜" />
+                                    <SliderControl label={t('room.enhance_denoise')} value={enhanceConfig.denoise} min={0} max={1} step={0.05}
+                                        onChange={v => setEnhanceConfig(c => ({ ...c, denoise: v }))} icon="🌫️" />
+                                </div>
+                                <div className="mt-3 pt-2 border-t border-border/40">
+                                    <button
+                                        onClick={() => setEnhanceConfig({ ...DEFAULT_ENHANCEMENT, enabled: enhanceConfig.enabled })}
+                                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                        {t('room.enhance_reset')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex items-center gap-3">
                             <Button
                                 size="icon-lg"
@@ -772,6 +863,16 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${isHandRaised ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30' : ''}`}
                             >
                                 <Hand className="w-5 h-5" />
+                            </Button>
+
+                            <Button
+                                size="icon-lg"
+                                variant={enhanceConfig.enabled ? 'default' : 'secondary'}
+                                onClick={() => setShowEnhancePanel(v => !v)}
+                                className={`rounded-xl transition-all duration-200 active:scale-90 ${enhanceConfig.enabled ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
+                                title={t('room.enhance_toggle')}
+                            >
+                                <Palette className="w-5 h-5" />
                             </Button>
 
                             <span className="w-px h-8 bg-border/60 mx-1" />

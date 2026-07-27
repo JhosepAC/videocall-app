@@ -226,6 +226,17 @@ export const en = {
     show_people: 'Show people',
     raise_hand: 'Raise Hand',
     lower_hand: 'Lower Hand',
+    enhance_toggle: 'Toggle video enhancement',
+    enhance_title: 'Enhance',
+    enhance_wb: 'White Balance',
+    enhance_awb_auto: 'Auto White Balance',
+    enhance_gamma: 'Gamma',
+    enhance_brightness: 'Brightness',
+    enhance_contrast: 'Contrast',
+    enhance_saturation: 'Saturation',
+    enhance_sharpness: 'Sharpness',
+    enhance_denoise: 'Denoise',
+    enhance_reset: 'Reset to defaults',
   },
 
   media_errors: {
