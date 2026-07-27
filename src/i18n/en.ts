@@ -224,6 +224,8 @@ export const en = {
     sharing: 'Sharing',
     hide_people: 'Hide people',
     show_people: 'Show people',
+    raise_hand: 'Raise Hand',
+    lower_hand: 'Lower Hand',
   },
 
   media_errors: {

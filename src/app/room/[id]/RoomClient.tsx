@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
@@ -60,6 +60,11 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
                         <p className="text-[10px] text-black/60 leading-tight">{username}</p>
                     )}
                 </div>
+                {info.isHandRaised && (
+                    <div className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                        <Hand className="w-3 h-3" />
+                    </div>
+                )}
                 {info.isAudioMuted && (
                     <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
                         <MicOff className="w-3 h-3" />
@@ -96,6 +101,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [username, setUsername] = useState('')
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
+    const [isHandRaised, setIsHandRaised] = useState(false)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isUrlCopied, setIsUrlCopied] = useState(false)
     const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
@@ -129,11 +135,11 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const screenTrack = screenStream?.getVideoTracks()[0] ?? null
 
-    const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, replaceVideoTrack } = useWebRTC(
+    const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
         roomId,
         localStream,
         screenTrack,
-        { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted }
+        { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
     )
 
     useEffect(() => {
@@ -187,6 +193,12 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         } else {
             startScreenShare(replaceVideoTrack)
         }
+    }
+
+    const handleToggleHand = () => {
+        const newState = !isHandRaised
+        setIsHandRaised(newState)
+        emitHandState(newState)
     }
 
     function handleCopyRoomId() {
@@ -318,11 +330,23 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
                                     {displayName}
                                 </span>
-                                {isScreenSharing && (
-                                    <span className="bg-brand/80 p-0.5 rounded text-white">
-                                        <MonitorUp className="w-3 h-3" />
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-1">
+                                    {isHandRaised && (
+                                        <span className="bg-amber-500/80 p-0.5 rounded text-white">
+                                            <Hand className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                    {isAudioMuted && (
+                                        <span className="bg-red-500/80 p-0.5 rounded text-white">
+                                            <MicOff className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                    {isScreenSharing && (
+                                        <span className="bg-brand/80 p-0.5 rounded text-white">
+                                            <MonitorUp className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -353,9 +377,18 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
                                             {remoteName}
                                         </span>
-                                        {info.isAudioMuted && (
-                                            <MicOff className="w-3 h-3 text-red-400 shrink-0" />
-                                        )}
+                                        <div className="flex items-center gap-1">
+                                            {info.isHandRaised && (
+                                                <span className="bg-amber-500/80 p-0.5 rounded text-white">
+                                                    <Hand className="w-3 h-3" />
+                                                </span>
+                                            )}
+                                            {info.isAudioMuted && (
+                                                <span className="bg-red-500/80 p-0.5 rounded text-white">
+                                                    <MicOff className="w-3 h-3" />
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )
@@ -398,11 +431,23 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
                                     {displayName}
                                 </span>
-                                {isScreenSharing && (
-                                    <span className="bg-brand/80 p-0.5 rounded text-white">
-                                        <MonitorUp className="w-3 h-3" />
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-1">
+                                    {isHandRaised && (
+                                        <span className="bg-amber-500/80 p-0.5 rounded text-white">
+                                            <Hand className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                    {isAudioMuted && (
+                                        <span className="bg-red-500/80 p-0.5 rounded text-white">
+                                            <MicOff className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                    {isScreenSharing && (
+                                        <span className="bg-brand/80 p-0.5 rounded text-white">
+                                            <MonitorUp className="w-3 h-3" />
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -436,9 +481,18 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
                                             {remoteName}
                                         </span>
-                                        {info.isAudioMuted && (
-                                            <MicOff className="w-3 h-3 text-red-400 shrink-0" />
-                                        )}
+                                        <div className="flex items-center gap-1">
+                                            {info.isHandRaised && (
+                                                <span className="bg-amber-500/80 p-0.5 rounded text-white">
+                                                    <Hand className="w-3 h-3" />
+                                                </span>
+                                            )}
+                                            {info.isAudioMuted && (
+                                                <span className="bg-red-500/80 p-0.5 rounded text-white">
+                                                    <MicOff className="w-3 h-3" />
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )
@@ -549,6 +603,16 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                                 <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
                                                             )}
                                                         </div>
+                                                        {isHandRaised && (
+                                                            <div className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                                                                <Hand className="w-3 h-3" />
+                                                            </div>
+                                                        )}
+                                                        {isAudioMuted && (
+                                                            <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                                                                <MicOff className="w-3 h-3" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : (
@@ -619,13 +683,15 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                         <User className="w-5 h-5 text-brand" />
                                                     )}
                                                 </div>
-                                                <div className="min-w-0">
+                                                <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-medium truncate">
                                                         {displayName}
                                                         <span className="text-[10px] bg-brand/20 text-brand px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">{t('room.you')}</span>
                                                     </p>
                                                     {displayUsername && <p className="text-xs text-muted-foreground truncate">{displayUsername}</p>}
                                                 </div>
+                                                {isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0" />}
+                                                {isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
                                             </div>
 
                                             {Object.values(remoteParticipants).map((info) => {
@@ -640,12 +706,13 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                                 <User className="w-5 h-5 text-brand" />
                                                             )}
                                                         </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="text-sm font-medium truncate">{remoteName}</p>
-                                                            {remoteUsername && <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
-                                                        </div>
-                                                        {info.isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium truncate">{remoteName}</p>
+                                                        {remoteUsername && <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
                                                     </div>
+                                                    {info.isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0" />}
+                                                    {info.isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
+                                                </div>
                                                 )
                                             })}
                                         </div>
@@ -653,7 +720,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         <div className="p-4 border-t border-border/40 shrink-0">
                                             <Button
                                                 onClick={handleCopyUrl}
-                                                className={`w-full gap-2 transition-all duration-300 ${isUrlCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-brand hover:bg-brand/90 text-primary-foreground'}`}
+                                                className={`w-full gap-2 rounded-xl transition-all duration-300 ${isUrlCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-brand hover:bg-brand/90 text-primary-foreground'}`}
                                             >
                                                 {isUrlCopied ? (
                                                     <><Check className="w-4 h-4" /> {t('room.copied')}</>
@@ -696,6 +763,15 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${isScreenSharing ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
                             >
                                 {isScreenSharing ? <StopCircle className="w-5 h-5" /> : <MonitorUp className="w-5 h-5" />}
+                            </Button>
+
+                            <Button
+                                size="icon-lg"
+                                variant={isHandRaised ? 'default' : 'secondary'}
+                                onClick={handleToggleHand}
+                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isHandRaised ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30' : ''}`}
+                            >
+                                <Hand className="w-5 h-5" />
                             </Button>
 
                             <span className="w-px h-8 bg-border/60 mx-1" />
