@@ -16,35 +16,6 @@ interface UseLocalMediaStreamReturn {
     stopScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => void
 }
 
-const CAMERA_TIMEOUT_MS = 10_000
-
-async function getCameraStream(signal: AbortSignal): Promise<MediaStream> {
-    const constraints: MediaStreamConstraints = {
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    }
-
-    const tryRes = async (w: number, h: number): Promise<MediaStream> => {
-        const c: MediaStreamConstraints = {
-            ...constraints,
-            video: { width: { ideal: w }, height: { ideal: h }, facingMode: 'user' },
-        }
-        return navigator.mediaDevices.getUserMedia(c)
-    }
-
-    try {
-        return await tryRes(640, 480)
-    } catch {
-        if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-        try {
-            return await tryRes(320, 240)
-        } catch {
-            if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-            const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
-            return audioOnly
-        }
-    }
-}
-
 export function useLocalMediaStream(): UseLocalMediaStreamReturn {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null)
     const [status, setStatus] = useState<StreamStatus>('requesting')
@@ -59,22 +30,17 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
 
     useEffect(() => {
         let isMounted = true
-        const abortController = new AbortController()
-        const timeoutId = setTimeout(() => {
-            if (isMounted) {
-                abortController.abort()
-                setStatus('error')
-                setErrorMessage('Camera did not respond in time. Check permissions and try again.')
-            }
-        }, CAMERA_TIMEOUT_MS)
+        let upgradeTimeout: ReturnType<typeof setTimeout>
 
-        const initMediaStream = async () => {
+        const init = async () => {
             try {
-                const stream = await getCameraStream(abortController.signal)
-                clearTimeout(timeoutId)
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                })
 
                 if (!isMounted) {
-                    stream.getTracks().forEach((track) => track.stop())
+                    stream.getTracks().forEach((t) => t.stop())
                     return
                 }
 
@@ -83,21 +49,43 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 setIsVideoStopped(!stream.getVideoTracks()[0])
                 setLocalStream(stream)
                 setStatus('ready')
+
+                const videoTrack = stream.getVideoTracks()[0]
+                if (videoTrack) {
+                    upgradeTimeout = setTimeout(async () => {
+                        try {
+                            await videoTrack.applyConstraints({
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 },
+                                facingMode: 'user',
+                            })
+                        } catch {
+                            // keep current resolution if upgrade fails
+                        }
+                    }, 600)
+                }
             } catch (err: unknown) {
-                clearTimeout(timeoutId)
-                if (!isMounted || abortController.signal.aborted) return
+                if (!isMounted) return
                 console.error('[MEDIA ERROR]', err)
-                setStatus('error')
-                setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
+
+                try {
+                    const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
+                    streamRef.current = audioOnly
+                    setLocalStream(audioOnly)
+                    setIsVideoStopped(true)
+                    setStatus('ready')
+                } catch {
+                    setStatus('error')
+                    setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
+                }
             }
         }
 
-        initMediaStream()
+        init()
 
         return () => {
             isMounted = false
-            clearTimeout(timeoutId)
-            abortController.abort()
+            clearTimeout(upgradeTimeout)
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop())
                 streamRef.current = null
