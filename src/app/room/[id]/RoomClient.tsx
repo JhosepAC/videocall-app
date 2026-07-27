@@ -1,19 +1,23 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
-import { useWebRTC } from '@/hooks/useWebRTC'
+import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
+
+const MAX_GRID_PAGE_SIZE = 9
 
 interface RoomClientProps {
     roomId: string
 }
 
-const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
+const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; info: ParticipantInfo; className?: string }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
+    const isVideoPlaying = !info.isVideoMuted
 
     useEffect(() => {
         if (videoRef.current && stream) {
@@ -21,41 +25,82 @@ const RemoteVideo = ({ stream, id }: { stream: MediaStream; id: string }) => {
         }
     }, [stream])
 
+    const name = info.fullName || 'Participant'
+    const username = info.username ? `@${info.username}` : ''
+
     return (
-        <div className="relative w-full h-full bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40">
+        <div className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
             <video
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
             />
-            <div className="absolute bottom-3 left-3 bg-overlay/70 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium text-foreground/90 border border-glass/20">
-                <Users className="w-3 h-3 inline mr-1.5 -mt-0.5" />
-                {id.slice(0, 8)}
+
+            {!isVideoPlaying && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
+                    {info.avatarUrl ? (
+                        <img
+                            src={info.avatarUrl}
+                            alt={name}
+                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
+                        />
+                    ) : (
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
+                            <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+                <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
+                    <p className="text-xs font-semibold text-black leading-tight">{name}</p>
+                    {username && (
+                        <p className="text-[10px] text-black/60 leading-tight">{username}</p>
+                    )}
+                </div>
+                {info.isAudioMuted && (
+                    <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                        <MicOff className="w-3 h-3" />
+                    </div>
+                )}
             </div>
         </div>
     )
 }
 
 export default function RoomClient({ roomId }: RoomClientProps) {
+    const router = useRouter()
     const {
         localStream,
+        screenStream,
         status,
         errorMessage,
         isAudioMuted,
         isVideoStopped,
+        isScreenSharing,
         toggleAudio,
         toggleVideo,
+        startScreenShare,
+        stopScreenShare
     } = useLocalMediaStream()
 
     const { t, locale } = useI18n()
-    const { remoteStreams } = useWebRTC(roomId, localStream)
-    const localVideoRef = useRef<HTMLVideoElement>(null)
+    const screenVideoRef = useRef<HTMLVideoElement>(null)
+
     const [copied, setCopied] = useState(false)
     const [now, setNow] = useState(new Date())
+    const [userId, setUserId] = useState('')
     const [fullName, setFullName] = useState('')
     const [username, setUsername] = useState('')
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+    const [isUrlCopied, setIsUrlCopied] = useState(false)
+    const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
+    const [gridPage, setGridPage] = useState(0)
+    const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -66,6 +111,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         const supabase = createClient()
         supabase.auth.getUser().then(({ data: { user } }) => {
             if (!user) return
+            setUserId(user.id)
             supabase
                 .from('profiles')
                 .select('full_name, username, avatar_url')
@@ -81,16 +127,78 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         })
     }, [])
 
+    const screenTrack = screenStream?.getVideoTracks()[0] ?? null
+
+    const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, replaceVideoTrack } = useWebRTC(
+        roomId,
+        localStream,
+        screenTrack,
+        { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted }
+    )
+
     useEffect(() => {
-        if (localVideoRef.current && localStream) {
-            localVideoRef.current.srcObject = localStream
+        if (screenVideoRef.current && screenStream) {
+            screenVideoRef.current.srcObject = screenStream
         }
-    }, [localStream])
+        if (!screenStream) {
+            setScreenAspectRatio(null)
+        }
+
+        const el = screenVideoRef.current
+        if (!el) return
+
+        const handleResize = () => {
+            if (el.videoWidth && el.videoHeight) {
+                setScreenAspectRatio(el.videoWidth / el.videoHeight)
+            }
+        }
+
+        el.addEventListener('resize', handleResize)
+        return () => el.removeEventListener('resize', handleResize)
+    }, [screenStream])
+
+    useEffect(() => {
+        if (roomEnded) {
+            router.push('/dashboard')
+        }
+    }, [roomEnded, router])
+
+    useEffect(() => {
+        const total = 1 + Object.keys(remoteParticipants).length
+        const pages = Math.ceil(total / MAX_GRID_PAGE_SIZE)
+        if (gridPage >= pages) {
+            setGridPage(Math.max(0, pages - 1))
+        }
+    }, [remoteParticipants, gridPage])
+
+    const handleToggleVideo = () => {
+        const newState = toggleVideo()
+        emitMediaState(newState, isAudioMuted)
+    }
+
+    const handleToggleAudio = () => {
+        const newState = toggleAudio()
+        emitMediaState(isVideoStopped, newState)
+    }
+
+    const handleToggleScreenShare = () => {
+        if (isScreenSharing) {
+            stopScreenShare(replaceVideoTrack)
+        } else {
+            startScreenShare(replaceVideoTrack)
+        }
+    }
 
     function handleCopyRoomId() {
         navigator.clipboard.writeText(roomId)
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
+    }
+
+    function handleCopyUrl() {
+        navigator.clipboard.writeText(window.location.href)
+        setIsUrlCopied(true)
+        setTimeout(() => setIsUrlCopied(false), 2000)
     }
 
     function formatHeaderDate(d: Date): string {
@@ -136,19 +244,215 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         )
     }
 
-    const totalParticipants = 1 + Object.keys(remoteStreams).length
-    const gridClasses =
-        totalParticipants === 1 ? 'grid-cols-1' :
-            totalParticipants === 2 ? 'grid-cols-1 sm:grid-cols-2' :
-                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+    const totalParticipants = 1 + Object.keys(remoteParticipants).length
 
-    const displayName = fullName || 'You'
+    const getGridDimensions = (count: number) => {
+        if (count <= 1) return { cols: 1, rows: 1 }
+        if (count <= 2) return { cols: 2, rows: 1 }
+        if (count <= 3) return { cols: 3, rows: 1 }
+        if (count <= 4) return { cols: 2, rows: 2 }
+        if (count <= 6) return { cols: 3, rows: 2 }
+        return { cols: 3, rows: 3 }
+    }
+
+    const allParticipants: { id: string; type: 'local' | 'remote'; stream?: MediaStream; info?: ParticipantInfo }[] = [
+        { id: 'local', type: 'local' },
+        ...Object.entries(remoteStreams)
+            .filter(([peerId]) => remoteParticipants[peerId])
+            .map(([peerId, stream]) => ({ id: peerId, type: 'remote' as const, stream, info: remoteParticipants[peerId] }))
+    ]
+
+    const totalGridPages = Math.ceil(allParticipants.length / MAX_GRID_PAGE_SIZE)
+    const safeGridPage = Math.min(gridPage, Math.max(0, totalGridPages - 1))
+    const startIdx = safeGridPage * MAX_GRID_PAGE_SIZE
+    const pageParticipants = allParticipants.slice(startIdx, startIdx + MAX_GRID_PAGE_SIZE)
+    const { cols, rows } = getGridDimensions(pageParticipants.length)
+
+    const displayName = fullName || t('room.you')
     const displayUsername = username ? `@${username}` : ''
-    const userInitial = displayName.charAt(0).toUpperCase()
+
+    const isRightPanelVisible = isScreenSharing
+        ? (!isPeopleCollapsed || isSidebarOpen)
+        : isSidebarOpen
+
+    const renderPeopleThumbnails = (containerClassName = 'shrink-0', isHorizontal = false) => (
+        <div className={`${containerClassName} border-t border-border/40 flex flex-col`}>
+            {!isHorizontal && (
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border/40">
+                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        {t('room.participants')} ({Object.keys(remoteParticipants).length + 1})
+                    </span>
+                    <button
+                        onClick={() => setIsPeopleCollapsed(true)}
+                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        {t('room.hide_people')}
+                        <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+            <div className={isHorizontal ? 'flex-1 flex items-center justify-center gap-3 px-3 overflow-hidden' : 'overflow-y-auto p-3 space-y-3'}>
+                {isHorizontal ? (
+                    <>
+                        <div className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
+                            <video
+                                autoPlay playsInline muted
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                                    isVideoStopped ? 'opacity-0' : 'opacity-100'
+                                } scale-x-[-1]`}
+                                ref={el => { if (el && localStream) el.srcObject = localStream }}
+                            />
+                            {isVideoStopped && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} alt={displayName} className="w-18 h-18 rounded-full object-cover ring-2 ring-brand/20" />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                                            <User className="w-6 h-6 text-brand" />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
+                                <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
+                                    {displayName}
+                                </span>
+                                {isScreenSharing && (
+                                    <span className="bg-brand/80 p-0.5 rounded text-white">
+                                        <MonitorUp className="w-3 h-3" />
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {Object.entries(remoteStreams).map(([peerId, stream]) => {
+                            const info = remoteParticipants[peerId]
+                            if (!info) return null
+                            const remoteName = info.fullName || t('room.participant')
+                            const isVideoPlaying = !info.isVideoMuted
+                            return (
+                                <div key={peerId} className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
+                                    <video
+                                        autoPlay playsInline
+                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
+                                        ref={el => { if (el) el.srcObject = stream }}
+                                    />
+                                    {!isVideoPlaying && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
+                                            {info.avatarUrl ? (
+                                                <img src={info.avatarUrl} alt={remoteName} className="w-12 h-12 rounded-full object-cover ring-2 ring-brand/20" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                                                    <User className="w-6 h-6 text-brand" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
+                                        <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
+                                            {remoteName}
+                                        </span>
+                                        {info.isAudioMuted && (
+                                            <MicOff className="w-3 h-3 text-red-400 shrink-0" />
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+
+                        <button
+                            onClick={() => setIsPeopleCollapsed(true)}
+                            className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card/80 hover:bg-card border border-border/40 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                            {t('room.hide_people')}
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <div className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
+                            <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                                <video
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                                        isVideoStopped ? 'opacity-0' : 'opacity-100'
+                                    } scale-x-[-1]`}
+                                    ref={el => { if (el && localStream) el.srcObject = localStream }}
+                                />
+                                {isVideoStopped && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} alt={displayName} className="w-22 h-22 rounded-full object-cover ring-2 ring-brand/20" />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                                                <User className="w-5 h-5 text-brand" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
+                                <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
+                                    {displayName}
+                                </span>
+                                {isScreenSharing && (
+                                    <span className="bg-brand/80 p-0.5 rounded text-white">
+                                        <MonitorUp className="w-3 h-3" />
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {Object.entries(remoteStreams).map(([peerId, stream]) => {
+                            const info = remoteParticipants[peerId]
+                            if (!info) return null
+                            const remoteName = info.fullName || t('room.participant')
+                            const isVideoPlaying = !info.isVideoMuted
+                            return (
+                                <div key={peerId} className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
+                                    <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                                        <video
+                                            autoPlay
+                                            playsInline
+                                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
+                                            ref={el => { if (el) el.srcObject = stream }}
+                                        />
+                                        {!isVideoPlaying && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
+                                                {info.avatarUrl ? (
+                                                    <img src={info.avatarUrl} alt={remoteName} className="w-10 h-10 rounded-full object-cover ring-2 ring-brand/20" />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                                                        <User className="w-5 h-5 text-brand" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
+                                        <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
+                                            {remoteName}
+                                        </span>
+                                        {info.isAudioMuted && (
+                                            <MicOff className="w-3 h-3 text-red-400 shrink-0" />
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </>
+                )}
+            </div>
+        </div>
+    )
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden bg-background">
-            <header className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-b border-border/40 h-12">
+        <div className="flex flex-col h-screen bg-background">
+
+            <header className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-b border-border/40 h-12 z-30">
                 <div className="flex items-center gap-3 px-4 text-xs text-muted-foreground">
                     <Clock className="w-3.5 h-3.5" />
                     <span className="tabular-nums">{formatHeaderDate(now)} - {formatHeaderTime(now)}</span>
@@ -168,78 +472,264 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 </div>
             </header>
 
-            <main className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-                <div className={`w-full h-full grid gap-3 place-items-center ${gridClasses}`}>
-                    <div className="relative w-full h-full min-h-0 bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20">
-                        <video
-                            ref={localVideoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${
-                                isVideoStopped ? 'opacity-0' : 'opacity-100'
-                            }`}
-                        />
-
-                        {isVideoStopped && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
-                                {avatarUrl ? (
-                                    <img
-                                        src={avatarUrl}
-                                        alt={displayName}
-                                        className="w-40 h-40 md:w-60 md:h-60 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
-                                    />
-                                ) : (
-                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand text-3xl font-bold shadow-xl">
-                                        {userInitial !== 'Y' ? userInitial : <CameraOff className="w-10 h-10" />}
+            <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 flex flex-col min-w-0">
+                    <div className="flex-1 flex min-h-0">
+                        <main className="flex-1 flex flex-col overflow-hidden">
+                            {isScreenSharing ? (
+                                <div className={`${isSidebarOpen && !isPeopleCollapsed ? 'flex-[8]' : 'flex-1'} min-h-0 flex items-center justify-center p-4`}>
+                                    <div
+                                        className="relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 max-w-full max-h-full"
+                                        style={screenAspectRatio ? { aspectRatio: `${screenAspectRatio}` } : undefined}
+                                    >
+                                        <video
+                                            ref={screenVideoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-contain transition-opacity duration-300 opacity-100"
+                                            onLoadedMetadata={(e) => {
+                                                const v = e.currentTarget
+                                                if (v.videoWidth && v.videoHeight) {
+                                                    setScreenAspectRatio(v.videoWidth / v.videoHeight)
+                                                }
+                                            }}
+                                        />
+                                        <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+                                            <div className="bg-brand/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md text-xs font-medium text-white flex items-center gap-1.5">
+                                                <MonitorUp className="w-4 h-4" />
+                                                {t('room.sharing_screen')}
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        )}
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center p-3 md:p-4 overflow-hidden">
+                                    <div
+                                        className="w-full h-full max-w-[1600px] grid gap-3 md:gap-4 place-items-center flex-1 min-h-0"
+                                        style={{
+                                            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                                            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+                                        }}
+                                    >
+                                        {pageParticipants.map((p, idx) => {
+                                            const centerLast = pageParticipants.length === 3 && cols === 2 && rows === 2 && idx === 2
+                                            return p.type === 'local' ? (
+                                                <div key="local" className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 ${centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}`}>
+                                                    <video
+                                                        autoPlay
+                                                        playsInline
+                                                        muted
+                                                        className={`w-full h-full object-cover transition-opacity duration-300 ${
+                                                            isVideoStopped ? 'opacity-0' : 'opacity-100'
+                                                        } scale-x-[-1]`}
+                                                        ref={el => { if (el && localStream) el.srcObject = localStream }}
+                                                    />
 
-                        <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md z-20">
-                            <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
-                            {displayUsername && (
-                                <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
+                                                    {isVideoStopped && (
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
+                                                            {avatarUrl ? (
+                                                                <img
+                                                                    src={avatarUrl}
+                                                                    alt={displayName}
+                                                                    className="w-32 h-32 md:w-75 md:h-75 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
+                                                                    <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+                                                        <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
+                                                            <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
+                                                            {displayUsername && (
+                                                                <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <RemoteVideo key={p.id} stream={p.stream!} info={p.info!} className={centerLast ? 'col-span-2 justify-self-center w-1/2' : ''} />
+                                            )
+                                        })}
+                                    </div>
+                                    {totalGridPages > 1 && (
+                                        <div className="shrink-0 flex items-center justify-center gap-3 pt-2">
+                                            <button
+                                                onClick={() => setGridPage(p => Math.max(0, p - 1))}
+                                                disabled={safeGridPage === 0}
+                                                className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                                                {safeGridPage + 1} / {totalGridPages}
+                                            </span>
+                                            <button
+                                                onClick={() => setGridPage(p => Math.min(totalGridPages - 1, p + 1))}
+                                                disabled={safeGridPage === totalGridPages - 1}
+                                                className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
+
+                            {isScreenSharing && isPeopleCollapsed && (
+                                <div className="shrink-0 flex justify-center pb-3">
+                                    <button
+                                        onClick={() => setIsPeopleCollapsed(false)}
+                                        className="flex items-center gap-2 bg-card/80 backdrop-blur-xl border border-border/40 hover:bg-card transition-all duration-200 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-lg hover:shadow-xl active:scale-95"
+                                    >
+                                        <ChevronUp className="w-4 h-4" />
+                                        <Users className="w-4 h-4" />
+                                        {t('room.show_people')} ({Object.keys(remoteParticipants).length + 1})
+                                    </button>
+                                </div>
+                            )}
+
+                            {isScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[2] min-h-0', true)}
+                        </main>
+
+                        <div className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isRightPanelVisible ? 'w-80' : 'w-0'}`}>
+                            <div className="h-full p-3">
+                                <aside className="h-full bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xs flex flex-col overflow-hidden">
+                                    <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'flex-1 min-h-0' : 'h-0'}`}>
+                                        <div className="flex items-center justify-between p-4 border-b border-border/40 shrink-0">
+                                            <h3 className="font-semibold flex items-center gap-2">
+                                                <Users className="w-4 h-4 text-brand" />
+                                                {t('room.participants')} ({totalParticipants})
+                                            </h3>
+                                            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="rounded-full w-8 h-8 shrink-0">
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border border-border/50">
+                                                <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
+                                                    {avatarUrl ? (
+                                                        <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <User className="w-5 h-5 text-brand" />
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium truncate">
+                                                        {displayName}
+                                                        <span className="text-[10px] bg-brand/20 text-brand px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">{t('room.you')}</span>
+                                                    </p>
+                                                    {displayUsername && <p className="text-xs text-muted-foreground truncate">{displayUsername}</p>}
+                                                </div>
+                                            </div>
+
+                                            {Object.values(remoteParticipants).map((info) => {
+                                                const remoteName = info.fullName || t('room.participant')
+                                                const remoteUsername = info.username ? `@${info.username}` : ''
+                                                return (
+                                                    <div key={info.socketId} className="flex items-center gap-3 p-2">
+                                                        <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
+                                                            {info.avatarUrl ? (
+                                                                <img src={info.avatarUrl} alt={remoteName} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <User className="w-5 h-5 text-brand" />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-medium truncate">{remoteName}</p>
+                                                            {remoteUsername && <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
+                                                        </div>
+                                                        {info.isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+
+                                        <div className="p-4 border-t border-border/40 shrink-0">
+                                            <Button
+                                                onClick={handleCopyUrl}
+                                                className={`w-full gap-2 transition-all duration-300 ${isUrlCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-brand hover:bg-brand/90 text-primary-foreground'}`}
+                                            >
+                                                {isUrlCopied ? (
+                                                    <><Check className="w-4 h-4" /> {t('room.copied')}</>
+                                                ) : (
+                                                    <><Share2 className="w-4 h-4" /> {t('room.share_url')}</>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {isScreenSharing && !isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails()}
+                                </aside>
+                            </div>
                         </div>
                     </div>
 
-                    {Object.entries(remoteStreams).map(([peerId, stream]) => (
-                        <RemoteVideo key={peerId} id={peerId} stream={stream} />
-                    ))}
-                </div>
-            </main>
+                    <footer className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16 relative">
+                        <div className="flex items-center gap-3">
+                            <Button
+                                size="icon-lg"
+                                variant={isAudioMuted ? 'destructive' : 'secondary'}
+                                onClick={handleToggleAudio}
+                                className="rounded-xl transition-all duration-200 active:scale-90"
+                            >
+                                {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                            </Button>
+                            <Button
+                                size="icon-lg"
+                                variant={isVideoStopped ? 'destructive' : 'secondary'}
+                                onClick={handleToggleVideo}
+                                className="rounded-xl transition-all duration-200 active:scale-90"
+                            >
+                                {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+                            </Button>
 
-            <footer className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16">
-                <div className="flex items-center gap-3">
-                    <Button
-                        size="icon-lg"
-                        variant={isAudioMuted ? 'destructive' : 'secondary'}
-                        onClick={toggleAudio}
-                        className="rounded-xl transition-all duration-200 active:scale-90"
-                    >
-                        {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                    </Button>
-                    <Button
-                        size="icon-lg"
-                        variant={isVideoStopped ? 'destructive' : 'secondary'}
-                        onClick={toggleVideo}
-                        className="rounded-xl transition-all duration-200 active:scale-90"
-                    >
-                        {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-                    </Button>
-                    <span className="w-px h-8 bg-border/60 mx-1" />
-                    <Button
-                        size="lg"
-                        variant="destructive"
-                        className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
-                    >
-                        <PhoneOff className="w-5 h-5" />
-                        {t('room.leave')}
-                    </Button>
+                            <Button
+                                size="icon-lg"
+                                variant={isScreenSharing ? 'default' : 'secondary'}
+                                onClick={handleToggleScreenShare}
+                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isScreenSharing ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
+                            >
+                                {isScreenSharing ? <StopCircle className="w-5 h-5" /> : <MonitorUp className="w-5 h-5" />}
+                            </Button>
+
+                            <span className="w-px h-8 bg-border/60 mx-1" />
+
+                            <Button
+                                size="icon-lg"
+                                variant={isSidebarOpen ? 'default' : 'secondary'}
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isSidebarOpen ? 'bg-brand text-primary-foreground' : ''}`}
+                            >
+                                <Users className="w-5 h-5" />
+                            </Button>
+
+                            <span className="w-px h-8 bg-border/60 mx-1" />
+                            <Button
+                                size="lg"
+                                variant="destructive"
+                                onClick={endRoom}
+                                className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
+                            >
+                                <PhoneOff className="w-5 h-5" />
+                                {t('room.leave')}
+                            </Button>
+                        </div>
+                    </footer>
                 </div>
-            </footer>
+            </div>
+
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
         </div>
     )
 }

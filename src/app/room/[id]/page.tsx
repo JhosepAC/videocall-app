@@ -8,13 +8,15 @@ export const metadata: Metadata = {
     description: 'Secure P2P video conference. Direct real-time communication.',
 }
 
-export default function RoomPage({ params }: { params: { id: string } }) {
+export default async function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = await params;
+
     return (
         <ThemeProvider>
             <I18nProvider>
-            <div className="min-h-screen bg-background">
-                <RoomClient roomId={params.id} />
-            </div>
+                <div className="min-h-screen bg-background">
+                    <RoomClient roomId={resolvedParams.id} />
+                </div>
             </I18nProvider>
         </ThemeProvider>
     )
