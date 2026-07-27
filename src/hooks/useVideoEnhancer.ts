@@ -25,15 +25,20 @@ export function useVideoEnhancer(
     document.body.appendChild(video)
 
     const pipeline = new WebGLPipeline()
-    video.addEventListener('loadedmetadata', () => {
-      video.play()
+
+    const onReady = () => {
       pipeline.attachVideo(video)
       pipeline.start()
-
       const track = pipeline.getOutputTrack(30)
       if (track) {
         setEnhancedTrack(track)
       }
+    }
+
+    video.addEventListener('loadeddata', onReady, { once: true })
+    video.play().catch(() => {
+      video.muted = true
+      video.play().catch(() => {})
     })
 
     pipelineRef.current = pipeline

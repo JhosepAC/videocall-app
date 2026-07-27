@@ -16,6 +16,35 @@ interface UseLocalMediaStreamReturn {
     stopScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => void
 }
 
+const CAMERA_TIMEOUT_MS = 10_000
+
+async function getCameraStream(signal: AbortSignal): Promise<MediaStream> {
+    const constraints: MediaStreamConstraints = {
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    }
+
+    const tryRes = async (w: number, h: number): Promise<MediaStream> => {
+        const c: MediaStreamConstraints = {
+            ...constraints,
+            video: { width: { ideal: w }, height: { ideal: h }, facingMode: 'user' },
+        }
+        return navigator.mediaDevices.getUserMedia(c)
+    }
+
+    try {
+        return await tryRes(640, 480)
+    } catch {
+        if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+        try {
+            return await tryRes(320, 240)
+        } catch {
+            if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+            const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
+            return audioOnly
+        }
+    }
+}
+
 export function useLocalMediaStream(): UseLocalMediaStreamReturn {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null)
     const [status, setStatus] = useState<StreamStatus>('requesting')
@@ -30,13 +59,19 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
 
     useEffect(() => {
         let isMounted = true
+        const abortController = new AbortController()
+        const timeoutId = setTimeout(() => {
+            if (isMounted) {
+                abortController.abort()
+                setStatus('error')
+                setErrorMessage('Camera did not respond in time. Check permissions and try again.')
+            }
+        }, CAMERA_TIMEOUT_MS)
 
         const initMediaStream = async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-                })
+                const stream = await getCameraStream(abortController.signal)
+                clearTimeout(timeoutId)
 
                 if (!isMounted) {
                     stream.getTracks().forEach((track) => track.stop())
@@ -44,23 +79,16 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 }
 
                 streamRef.current = stream
-                originalVideoTrackRef.current = stream.getVideoTracks()[0]
+                originalVideoTrackRef.current = stream.getVideoTracks()[0] ?? null
+                setIsVideoStopped(!stream.getVideoTracks()[0])
                 setLocalStream(stream)
                 setStatus('ready')
             } catch (err: unknown) {
-                if (!isMounted) return
+                clearTimeout(timeoutId)
+                if (!isMounted || abortController.signal.aborted) return
                 console.error('[MEDIA ERROR]', err)
-
-                try {
-                    const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                    streamRef.current = audioOnlyStream
-                    setLocalStream(audioOnlyStream)
-                    setIsVideoStopped(true)
-                    setStatus('ready')
-                } catch (audioErr) {
-                    setStatus('error')
-                    setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
-                }
+                setStatus('error')
+                setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
             }
         }
 
@@ -68,6 +96,8 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
 
         return () => {
             isMounted = false
+            clearTimeout(timeoutId)
+            abortController.abort()
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop())
                 streamRef.current = null
