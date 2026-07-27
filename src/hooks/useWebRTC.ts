@@ -18,13 +18,14 @@ export interface ParticipantInfo {
     avatarUrl: string | null
     isVideoMuted: boolean
     isAudioMuted: boolean
+    isHandRaised: boolean
 }
 
 export function useWebRTC(
     roomId: string,
     localStream: MediaStream | null,
     screenTrack: MediaStreamTrack | null,
-    userInfo: { userId: string, fullName: string, username: string, avatarUrl: string | null, isVideoMuted: boolean, isAudioMuted: boolean }
+    userInfo: { userId: string, fullName: string, username: string, avatarUrl: string | null, isVideoMuted: boolean, isAudioMuted: boolean, isHandRaised: boolean }
 ) {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
     const [remoteParticipants, setRemoteParticipants] = useState<Record<string, ParticipantInfo>>({})
@@ -47,6 +48,12 @@ export function useWebRTC(
     const emitMediaState = useCallback((isVideoMuted: boolean, isAudioMuted: boolean) => {
         if (socketRef.current) {
             socketRef.current.emit('media-state-change', { isVideoMuted, isAudioMuted })
+        }
+    }, [])
+
+    const emitHandState = useCallback((isHandRaised: boolean) => {
+        if (socketRef.current) {
+            socketRef.current.emit('hand-state-change', { isHandRaised })
         }
     }, [])
 
@@ -125,6 +132,16 @@ export function useWebRTC(
             })
         })
 
+        socket.on('peer-hand-state', ({ socketId, isHandRaised }) => {
+            setRemoteParticipants(prev => {
+                if (!prev[socketId]) return prev
+                return {
+                    ...prev,
+                    [socketId]: { ...prev[socketId], isHandRaised }
+                }
+            })
+        })
+
         socket.on('webrtc-offer', async ({ fromSocketId, offer }) => {
             const pc = createPeerConnection(fromSocketId, socket)
             peersRef.current[fromSocketId] = pc
@@ -195,5 +212,5 @@ export function useWebRTC(
         }
     }, [])
 
-    return { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, replaceVideoTrack }
+    return { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack }
 }
