@@ -34,7 +34,8 @@ export function useWebRTC(
     roomId: string,
     localStream: MediaStream | null,
     screenTrack: MediaStreamTrack | null,
-    userInfo: { userId: string, fullName: string, username: string, avatarUrl: string | null, isVideoMuted: boolean, isAudioMuted: boolean, isHandRaised: boolean }
+    userInfo: { userId: string, fullName: string, username: string, avatarUrl: string | null, isVideoMuted: boolean, isAudioMuted: boolean },
+    isHandRaised: boolean
 ) {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
     const [remoteParticipants, setRemoteParticipants] = useState<Record<string, ParticipantInfo>>({})
@@ -114,7 +115,7 @@ export function useWebRTC(
         const socket = io(SIGNALING_SERVER)
         socketRef.current = socket
 
-        socket.emit('join-room', { roomId, ...userInfo })
+        socket.emit('join-room', { roomId, ...userInfo, isHandRaised: false })
 
         socket.on('room-participants', ({ participants }) => {
             const participantsMap: Record<string, ParticipantInfo> = {}

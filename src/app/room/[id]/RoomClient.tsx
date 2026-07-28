@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal, SmilePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -203,11 +203,23 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         return localStream
     }, [localStream, enhancedTrack, enhanceConfig.enabled])
 
+    const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
+        if (el && localDisplayStream) {
+            el.srcObject = localDisplayStream
+        }
+    }, [localDisplayStream])
+
+    const userInfo = useMemo(() => ({
+        userId, fullName, username, avatarUrl,
+        isVideoMuted: isVideoStopped, isAudioMuted
+    }), [userId, fullName, username, avatarUrl, isVideoStopped, isAudioMuted])
+
     const { remoteStreams, remoteParticipants, remoteReactions, endRoom, roomEnded, emitMediaState, emitHandState, emitReaction, replaceVideoTrack } = useWebRTC(
         roomId,
         localStream,
         screenTrack,
-        { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
+        userInfo,
+        isHandRaised
     )
 
     useEffect(() => {
@@ -274,10 +286,20 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         }
     }
 
+    const handAudioRef = useRef<HTMLAudioElement | null>(null)
+
+    useEffect(() => {
+        handAudioRef.current = new Audio('/sounds/raise-hand.mp3')
+    }, [])
+
     const handleToggleHand = () => {
         const newState = !isHandRaised
         setIsHandRaised(newState)
         emitHandState(newState)
+        if (newState && handAudioRef.current) {
+            handAudioRef.current.currentTime = 0
+            handAudioRef.current.play().catch(() => {})
+        }
     }
 
     const handleReact = (emoji: string) => {
@@ -413,7 +435,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                     isVideoStopped ? 'opacity-0' : 'opacity-100'
                                 } scale-x-[-1]`}
-                                ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                ref={setLocalVideoRef}
                             />
                             {isVideoStopped && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
@@ -513,7 +535,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                         isVideoStopped ? 'opacity-0' : 'opacity-100'
                                     } scale-x-[-1]`}
-                                    ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                    ref={setLocalVideoRef}
                                 />
                                 {isVideoStopped && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
@@ -677,7 +699,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                         className={`w-full h-full object-cover transition-opacity duration-300 ${
                                                             isVideoStopped ? 'opacity-0' : 'opacity-100'
                                                         } scale-x-[-1]`}
-                                                        ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                                        ref={setLocalVideoRef}
                                                     />
 
                                                     {isVideoStopped && (
