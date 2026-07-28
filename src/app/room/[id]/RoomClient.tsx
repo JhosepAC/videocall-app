@@ -11,6 +11,8 @@ import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
 import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
 import { getEmojiUrl, EMOJI_LIST } from '@/lib/emojis'
+import { useDominantColor } from '@/hooks/useDominantColor'
+import { getCircularGradientFromColor, getGradientFromColor } from '@/lib/utils'
 
 const MAX_GRID_PAGE_SIZE = 9
 
@@ -30,6 +32,7 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
 
     const name = info.fullName || 'Participant'
     const username = info.username ? `@${info.username}` : ''
+    const dominantColor = useDominantColor(info.avatarUrl || null)
 
     return (
         <div className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
@@ -41,16 +44,17 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
             />
 
             {!isVideoPlaying && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
+                <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300"
+                    style={{ background: getGradientFromColor(dominantColor) }}>
                     {info.avatarUrl ? (
                         <img
                             src={info.avatarUrl}
                             alt={name}
-                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
+                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
                         />
                     ) : (
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
-                            <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl">
+                            <User className="w-12 h-12 md:w-16 md:h-16 text-foreground/60" />
                         </div>
                     )}
                 </div>
@@ -74,6 +78,26 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
                     </div>
                 )}
             </div>
+        </div>
+    )
+}
+
+const ThumbnailFallback = ({ avatarUrl, name, imgSize, iconSize, iconCircleSize }: { avatarUrl?: string | null; name: string; imgSize: string; iconSize: string; iconCircleSize: string }) => {
+    const dominantColor = useDominantColor(avatarUrl || null)
+    return (
+        <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm transition-all duration-300"
+            style={{ background: getGradientFromColor(dominantColor) }}>
+            {avatarUrl ? (
+                <img
+                    src={avatarUrl}
+                    alt={name}
+                    className={`${imgSize} rounded-full object-cover ring-2 ring-white/20 shadow-2xl`}
+                />
+            ) : (
+                <div className={`${iconCircleSize} rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl`}>
+                    <User className={`${iconSize} text-foreground/60`} />
+                </div>
+            )}
         </div>
     )
 }
@@ -153,6 +177,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [showReactionPicker, setShowReactionPicker] = useState(false)
     const pickerRef = useRef<HTMLDivElement>(null)
     const reactionYIndexRef = useRef(0)
+    const reactionLastXRef = useRef(0)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -304,7 +329,16 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const handleReact = (emoji: string) => {
         const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        const x = Math.floor(Math.random() * 280) - 80
+        const minDist = 50
+        let x = Math.floor(Math.random() * 280) - 80
+        for (let i = 0; i < 20; i++) {
+            const candidate = Math.floor(Math.random() * 280) - 80
+            if (Math.abs(candidate - reactionLastXRef.current) >= minDist) {
+                x = candidate
+                break
+            }
+        }
+        reactionLastXRef.current = x
         const yOffsets = [0, 30, 60, 90, 120, 150]
         const yIndex = reactionYIndexRef.current
         reactionYIndexRef.current = (yIndex + 1) % yOffsets.length
@@ -438,15 +472,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 ref={setLocalVideoRef}
                             />
                             {isVideoStopped && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                    {avatarUrl ? (
-                                        <img src={avatarUrl} alt={displayName} className="w-18 h-18 rounded-full object-cover ring-2 ring-brand/20" />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                            <User className="w-6 h-6 text-brand" />
-                                        </div>
-                                    )}
-                                </div>
+                                <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-18 h-18" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
                             )}
                             <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
                                 <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
@@ -485,15 +511,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         ref={el => { if (el) el.srcObject = stream }}
                                     />
                                     {!isVideoPlaying && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                            {info.avatarUrl ? (
-                                                <img src={info.avatarUrl} alt={remoteName} className="w-12 h-12 rounded-full object-cover ring-2 ring-brand/20" />
-                                            ) : (
-                                                <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                    <User className="w-6 h-6 text-brand" />
-                                                </div>
-                                            )}
-                                        </div>
+                                        <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-12 h-12" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
                                     )}
                                     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
                                         <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
@@ -538,15 +556,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     ref={setLocalVideoRef}
                                 />
                                 {isVideoStopped && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                        {avatarUrl ? (
-                                            <img src={avatarUrl} alt={displayName} className="w-22 h-22 rounded-full object-cover ring-2 ring-brand/20" />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                <User className="w-5 h-5 text-brand" />
-                                            </div>
-                                        )}
-                                    </div>
+                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-22 h-22" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
                                 )}
                             </div>
                             <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
@@ -588,15 +598,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                             ref={el => { if (el) el.srcObject = stream }}
                                         />
                                         {!isVideoPlaying && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                                {info.avatarUrl ? (
-                                                    <img src={info.avatarUrl} alt={remoteName} className="w-10 h-10 rounded-full object-cover ring-2 ring-brand/20" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                        <User className="w-5 h-5 text-brand" />
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-10 h-10" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
                                         )}
                                     </div>
                                     <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
@@ -703,19 +705,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                     />
 
                                                     {isVideoStopped && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
-                                                            {avatarUrl ? (
-                                                                <img
-                                                                    src={avatarUrl}
-                                                                    alt={displayName}
-                                                                    className="w-32 h-32 md:w-75 md:h-75 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
-                                                                    <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-32 h-32 md:w-75 md:h-75" iconSize="w-12 h-12 md:w-16 md:h-16" iconCircleSize="w-24 h-24 md:w-32 md:h-32" />
                                                     )}
 
                                                     <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
@@ -999,7 +989,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     <SmilePlus className="w-5 h-5" />
                                 </Button>
                                 {showReactionPicker && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5 z-10">
                                         {EMOJI_LIST.map(({ emoji, label }) => (
                                             <button
                                                 key={emoji}
@@ -1051,7 +1041,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                         <div
                             key={r.id}
                             className="absolute animate-reaction leading-none"
-                            style={{ bottom: `calc(1rem + ${r.y}px)`, right: `calc(80px + ${r.x}px)` }}
+                            style={{ bottom: `calc(1rem + ${r.y}px)`, left: `calc(80px + ${r.x}px)` }}
                         >
                             <img
                                 src={getEmojiUrl(r.emoji)}

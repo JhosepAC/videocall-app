@@ -12,7 +12,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
 
     const fullName = (formData.get('fullName') as string)?.trim()
     const username = (formData.get('username') as string)?.trim()
-    const avatarUrl = (formData.get('avatarUrl') as string)?.trim()
+    const avatarUrl = (formData.get('avatarUrl') as string)?.trim() || null
 
     if (!fullName) return { error: 'Full name is required.' }
     if (!username) return { error: 'Username is required.' }
@@ -21,7 +21,7 @@ export async function updateProfile(formData: FormData): Promise<{ error?: strin
         id: user.id,
         full_name: fullName,
         username,
-        avatar_url: avatarUrl || null,
+        avatar_url: avatarUrl,
     })
 
     if (error) return { error: error.message }

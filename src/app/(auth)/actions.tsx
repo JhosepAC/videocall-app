@@ -136,7 +136,7 @@ export async function completeProfile(
 
     const fullName = (formData.get('full_name') as string)?.trim()
     const username = (formData.get('username') as string)?.trim()
-    const avatarUrl = (formData.get('avatar_url') as string)?.trim()
+    const avatarUrl = (formData.get('avatar_url') as string)?.trim() || null
 
     if (!fullName) {
         return { error: 'empty_full_name' }
@@ -144,10 +144,6 @@ export async function completeProfile(
 
     if (!username) {
         return { error: 'empty_username' }
-    }
-
-    if (!avatarUrl) {
-        return { error: 'empty_avatar_url' }
     }
 
     const { error } = await supabase.from('profiles').upsert({

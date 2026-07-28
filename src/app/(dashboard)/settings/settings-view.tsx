@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { ArrowLeft, Settings, User, Shield, Lock, LogOut, AtSign, Link2, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages } from 'lucide-react'
+import { useState, useTransition, useRef } from 'react'
+import { ArrowLeft, Settings, User, Shield, Lock, LogOut, AtSign, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages, Upload, Trash2, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,10 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useTheme } from '@/components/theme/theme-provider'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { updateProfile, updatePassword, savePreferences, signOut } from './actions'
+import { createClient } from '@/lib/supabase/client'
+import { uploadAvatar, deleteAvatar } from '@/lib/supabase/storage'
+import { useDominantColor } from '@/hooks/useDominantColor'
+import { getGradientFromColor } from '@/lib/utils'
 
 type Tab = 'account' | 'profile' | 'preferences' | 'security'
 type Lang = 'es' | 'en'
@@ -166,32 +170,101 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
     const [fullName, setFullName] = useState(profile.full_name)
     const [username, setUsername] = useState(profile.username)
     const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url || '')
+    const [avatarFile, setAvatarFile] = useState<File | null>(null)
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const dominantColor = useDominantColor(avatarPreview || avatarUrl || null)
 
+    const displayUrl = avatarPreview || avatarUrl || ''
     const initials = getInitials(fullName)
+
+    function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+        if (!allowedTypes.includes(file.type)) {
+            setResult({ error: 'Invalid file type. Allowed: JPG, PNG, WebP, GIF.' })
+            return
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setResult({ error: 'File too large. Maximum size is 5MB.' })
+            return
+        }
+
+        setAvatarFile(file)
+        const reader = new FileReader()
+        reader.onload = (event) => {
+            setAvatarPreview(event.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+    }
+
+    function handleRemoveAvatar() {
+        setAvatarFile(null)
+        setAvatarPreview(null)
+        setAvatarUrl('')
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
+    }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
         setResult(null)
         const formData = new FormData(e.currentTarget)
+
         startTransition(async () => {
-            const res = await updateProfile(formData)
-            if (res.success) {
-                setFullName((formData.get('fullName') as string) || fullName)
-                setUsername((formData.get('username') as string) || username)
-                setAvatarUrl((formData.get('avatarUrl') as string) || avatarUrl)
+            try {
+                let finalAvatarUrl = avatarUrl || ''
+
+                if (avatarFile) {
+                    const supabase = createClient()
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) {
+                        setResult({ error: 'You must be signed in.' })
+                        return
+                    }
+                    finalAvatarUrl = await uploadAvatar(user.id, avatarFile)
+                }
+
+                if (!avatarFile && !avatarUrl) {
+                    const supabase = createClient()
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (user) {
+                        await deleteAvatar(user.id)
+                    }
+                }
+
+                formData.set('avatarUrl', finalAvatarUrl)
+
+                const res = await updateProfile(formData)
+                if (res.success) {
+                    setFullName((formData.get('fullName') as string) || fullName)
+                    setUsername((formData.get('username') as string) || username)
+                    setAvatarUrl(finalAvatarUrl)
+                    setAvatarFile(null)
+                    setAvatarPreview(null)
+                }
+                setResult(res)
+            } catch (err) {
+                setResult({ error: err instanceof Error ? err.message : 'Upload failed.' })
             }
-            setResult(res)
         })
     }
 
     return (
         <div className="max-w-2xl">
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
-                <div className="h-28 bg-gradient-to-r from-brand to-brand-secondary" />
+                <div
+                    className="h-28 transition-all duration-700"
+                    style={{ background: getGradientFromColor(dominantColor) }}
+                />
                 <div className="px-4 pb-4 sm:px-8 sm:pb-8">
                     <div className="relative flex justify-between items-end -mt-12 mb-6">
                         <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background shadow-md bg-muted">
-                            <AvatarImage src={avatarUrl} />
+                            <AvatarImage src={displayUrl} />
                             <AvatarFallback className="text-2xl text-muted-foreground">
                                 {initials}
                             </AvatarFallback>
@@ -233,18 +306,45 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="avatarUrl" className="text-card-foreground/80">{t('settings.profile.avatar_url_label')}</Label>
-                            <div className="relative">
-                                <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                                <Input
-                                    id="avatarUrl"
-                                    name="avatarUrl"
-                                    value={avatarUrl}
-                                    onChange={(e) => setAvatarUrl(e.target.value)}
-                                    placeholder={t('settings.profile.avatar_url_placeholder')}
+                            <Label className="text-card-foreground/80">{t('settings.profile.avatar_label')}</Label>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    ref={fileInputRef}
+                                    id="avatarFile"
+                                    name="avatarFile"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp,image/gif"
                                     disabled={isPending}
-                                    className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
                                 />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isPending}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="h-12 px-5 text-sm rounded-xl border-border/60 bg-overlay/10 hover:bg-overlay/20 transition-all"
+                                >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    {displayUrl ? t('common.change_photo') : t('common.upload_photo')}
+                                </Button>
+                                {displayUrl && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={isPending}
+                                        onClick={handleRemoveAvatar}
+                                        className="h-12 px-4 text-sm rounded-xl border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10 transition-all"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                )}
+                                {!displayUrl && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Camera className="w-4 h-4" />
+                                        <span>{t('settings.profile.avatar_hint')}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
