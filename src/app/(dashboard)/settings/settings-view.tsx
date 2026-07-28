@@ -188,8 +188,8 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
             return
         }
 
-        if (file.size > 5 * 1024 * 1024) {
-            setResult({ error: 'File too large. Maximum size is 5MB.' })
+        if (file.size > 50 * 1024 * 1024) {
+            setResult({ error: 'File too large. Maximum size is 50MB.' })
             return
         }
 

@@ -5,9 +5,27 @@ import { Button } from '@/components/ui/button'
 import { ShieldCheck, ArrowRight } from 'lucide-react'
 import CursorGrid from '@/components/CursorGrid/CursorGrid'
 import { useI18n } from '@/components/i18n/i18n-provider'
+import { useEffect } from 'react'
 
 export default function Home() {
     const { t } = useI18n()
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const canvas = document.querySelector('.cursor-grid__canvas') as HTMLCanvasElement | null
+            if (!canvas) return
+            const rect = canvas.getBoundingClientRect()
+            const event = new PointerEvent('pointerdown', {
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2,
+                bubbles: true,
+                cancelable: true,
+            })
+            canvas.dispatchEvent(event)
+        }, 600)
+        return () => clearTimeout(timer)
+    }, [])
+
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden p-6">
             <CursorGrid
