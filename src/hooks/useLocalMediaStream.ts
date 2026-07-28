@@ -30,44 +30,62 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
 
     useEffect(() => {
         let isMounted = true
+        let upgradeTimeout: ReturnType<typeof setTimeout>
 
-        const initMediaStream = async () => {
+        const init = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+                    video: true,
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                 })
 
                 if (!isMounted) {
-                    stream.getTracks().forEach((track) => track.stop())
+                    stream.getTracks().forEach((t) => t.stop())
                     return
                 }
 
                 streamRef.current = stream
-                originalVideoTrackRef.current = stream.getVideoTracks()[0]
+                originalVideoTrackRef.current = stream.getVideoTracks()[0] ?? null
+                setIsVideoStopped(!stream.getVideoTracks()[0])
                 setLocalStream(stream)
                 setStatus('ready')
+
+                const videoTrack = stream.getVideoTracks()[0]
+                if (videoTrack) {
+                    upgradeTimeout = setTimeout(async () => {
+                        try {
+                            await videoTrack.applyConstraints({
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 },
+                                facingMode: 'user',
+                            })
+                        } catch {
+                            // keep current resolution if upgrade fails
+                        }
+                    }, 600)
+                }
             } catch (err: unknown) {
                 if (!isMounted) return
                 console.error('[MEDIA ERROR]', err)
 
                 try {
-                    const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                    streamRef.current = audioOnlyStream
-                    setLocalStream(audioOnlyStream)
+                    const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
+                    streamRef.current = audioOnly
+                    setLocalStream(audioOnly)
                     setIsVideoStopped(true)
                     setStatus('ready')
-                } catch (audioErr) {
+                } catch {
                     setStatus('error')
                     setErrorMessage('Failed to access camera or microphone. Please check your browser permissions and ensure no other application is using them.')
                 }
             }
         }
 
-        initMediaStream()
+        init()
 
         return () => {
             isMounted = false
+            clearTimeout(upgradeTimeout)
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop())
                 streamRef.current = null

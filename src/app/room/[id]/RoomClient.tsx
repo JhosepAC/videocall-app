@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
+import { useVideoEnhancer, DEFAULT_ENHANCEMENT } from '@/hooks/useVideoEnhancer'
+import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
 import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
 
@@ -75,6 +77,43 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
     )
 }
 
+const SliderControl = ({ label, value, min, max, step, onChange, icon }: {
+    label: string; value: number; min: number; max: number; step: number;
+    onChange: (v: number) => void; icon?: React.ReactNode | string
+}) => {
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2.5 text-sm text-foreground/65">
+                    {typeof icon === 'string' ? <span className="text-xs">{icon}</span> : icon}
+                    {label}
+                </span>
+                <span className="text-xs font-mono tabular-nums text-foreground/40 min-w-[3.5rem] text-right">
+                    {value > 0 ? '+' : ''}{value.toFixed(2)}
+                </span>
+            </div>
+            <div className="relative h-1.5">
+                <div className="absolute inset-0 rounded-full bg-muted-foreground/15" />
+                <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={value}
+                    onChange={e => onChange(parseFloat(e.target.value))}
+                    className="absolute inset-0 w-full appearance-none cursor-pointer bg-transparent
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground/50
+                        [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:duration-150
+                        [&::-webkit-slider-thumb]:hover:bg-foreground/70 [&::-webkit-slider-thumb]:active:bg-foreground/90
+                        [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5
+                        [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-foreground/50"
+                />
+            </div>
+        </div>
+    )
+}
+
 export default function RoomClient({ roomId }: RoomClientProps) {
     const router = useRouter()
     const {
@@ -107,6 +146,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
     const [gridPage, setGridPage] = useState(0)
     const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
+    const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({ ...DEFAULT_ENHANCEMENT })
+    const [showEnhancePanel, setShowEnhancePanel] = useState(false)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -135,12 +176,34 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const screenTrack = screenStream?.getVideoTracks()[0] ?? null
 
+    const { enhancedTrack } = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
+
+    const localDisplayStream = useMemo(() => {
+        if (!localStream) return null
+        if (enhancedTrack && enhanceConfig.enabled) {
+            const tracks = [enhancedTrack, ...localStream.getAudioTracks()]
+            return new MediaStream(tracks)
+        }
+        return localStream
+    }, [localStream, enhancedTrack, enhanceConfig.enabled])
+
     const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
         roomId,
         localStream,
         screenTrack,
         { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
     )
+
+    useEffect(() => {
+        if (enhancedTrack && enhanceConfig.enabled) {
+            replaceVideoTrack(enhancedTrack)
+        } else if (!enhanceConfig.enabled && localStream) {
+            const original = localStream.getVideoTracks()[0]
+            if (original) {
+                replaceVideoTrack(original)
+            }
+        }
+    }, [enhancedTrack, enhanceConfig.enabled, localStream, replaceVideoTrack])
 
     useEffect(() => {
         if (screenVideoRef.current && screenStream) {
@@ -284,8 +347,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const displayUsername = username ? `@${username}` : ''
 
     const isRightPanelVisible = isScreenSharing
-        ? (!isPeopleCollapsed || isSidebarOpen)
-        : isSidebarOpen
+        ? (!isPeopleCollapsed || isSidebarOpen || showEnhancePanel)
+        : (isSidebarOpen || showEnhancePanel)
 
     const renderPeopleThumbnails = (containerClassName = 'shrink-0', isHorizontal = false) => (
         <div className={`${containerClassName} border-t border-border/40 flex flex-col`}>
@@ -313,7 +376,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                     isVideoStopped ? 'opacity-0' : 'opacity-100'
                                 } scale-x-[-1]`}
-                                ref={el => { if (el && localStream) el.srcObject = localStream }}
+                                ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
                             />
                             {isVideoStopped && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
@@ -413,7 +476,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                         isVideoStopped ? 'opacity-0' : 'opacity-100'
                                     } scale-x-[-1]`}
-                                    ref={el => { if (el && localStream) el.srcObject = localStream }}
+                                    ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
                                 />
                                 {isVideoStopped && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
@@ -577,7 +640,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                         className={`w-full h-full object-cover transition-opacity duration-300 ${
                                                             isVideoStopped ? 'opacity-0' : 'opacity-100'
                                                         } scale-x-[-1]`}
-                                                        ref={el => { if (el && localStream) el.srcObject = localStream }}
+                                                        ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
                                                     />
 
                                                     {isVideoStopped && (
@@ -661,8 +724,90 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                         </main>
 
                         <div className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isRightPanelVisible ? 'w-80' : 'w-0'}`}>
-                            <div className="h-full p-3">
-                                <aside className="h-full bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xs flex flex-col overflow-hidden">
+                            <div className="h-full p-2">
+                                <aside className="h-full bg-card border border-border/60 rounded-2xl shadow-lg flex flex-col overflow-hidden">
+
+                                    {showEnhancePanel && (
+                                        <div className="flex flex-col overflow-hidden flex-1 min-h-0">
+                                            <div className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
+                                                <span className="text-sm font-medium text-foreground/80 flex items-center gap-2.5">
+                                                    <Palette className="w-4 h-4 text-foreground/50" />
+                                                    {t('room.enhance_title')}
+                                                </span>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => setEnhanceConfig(c => ({ ...c, enabled: !c.enabled }))}
+                                                        className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.enabled ? 'bg-brand' : 'bg-muted-foreground/20'}`}
+                                                    >
+                                                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.enabled ? 'translate-x-[1.125rem]' : ''}`} />
+                                                    </button>
+                                                    <Button variant="ghost" size="icon" onClick={() => setShowEnhancePanel(false)} className="rounded-lg w-7 h-7 text-muted-foreground/40 hover:text-foreground">
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+                                                <div className="space-y-5">
+                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_wb')}</span>
+                                                    <div className="space-y-5">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-sm text-foreground/60 flex items-center gap-2.5">
+                                                                <Thermometer className="w-4 h-4 text-foreground/35" />
+                                                                {t('room.enhance_awb_auto')}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => setEnhanceConfig(c => ({ ...c, autoWhiteBalance: !c.autoWhiteBalance }))}
+                                                                className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'bg-brand' : 'bg-muted-foreground/20'}`}
+                                                            >
+                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'translate-x-[1.125rem]' : ''}`} />
+                                                            </button>
+                                                        </div>
+                                                        {!enhanceConfig.autoWhiteBalance && (
+                                                            <SliderControl label={t('room.enhance_wb')} value={enhanceConfig.whiteBalance} min={-1} max={1} step={0.05}
+                                                                onChange={v => setEnhanceConfig(c => ({ ...c, whiteBalance: v }))}
+                                                                icon={<Thermometer className="w-4 h-4 text-foreground/35" />} />
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-5">
+                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_title')}</span>
+                                                    <div className="space-y-5">
+                                                        <SliderControl label={t('room.enhance_brightness')} value={enhanceConfig.brightness} min={-0.5} max={0.5} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, brightness: v }))} icon={<Sun className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_contrast')} value={enhanceConfig.contrast} min={0.5} max={2} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, contrast: v }))} icon={<Contrast className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_gamma')} value={enhanceConfig.gamma} min={0.5} max={2.5} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, gamma: v }))} icon={<SlidersHorizontal className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_saturation')} value={enhanceConfig.saturation} min={0} max={2} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, saturation: v }))} icon={<Palette className="w-4 h-4 text-foreground/35" />} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-5">
+                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">Detalles</span>
+                                                    <div className="space-y-5">
+                                                        <SliderControl label={t('room.enhance_sharpness')} value={enhanceConfig.sharpness} min={0} max={1.5} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, sharpness: v }))} icon={<Sparkles className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_denoise')} value={enhanceConfig.denoise} min={0} max={1} step={0.05}
+                                                            onChange={v => setEnhanceConfig(c => ({ ...c, denoise: v }))} icon={<Droplets className="w-4 h-4 text-foreground/35" />} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-1">
+                                                    <button
+                                                        onClick={() => setEnhanceConfig({ ...DEFAULT_ENHANCEMENT, enabled: enhanceConfig.enabled })}
+                                                        className="flex items-center gap-1.5 text-xs text-foreground/30 hover:text-foreground/60 transition-colors"
+                                                    >
+                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                        {t('room.enhance_reset')}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'flex-1 min-h-0' : 'h-0'}`}>
                                         <div className="flex items-center justify-between p-4 border-b border-border/40 shrink-0">
                                             <h3 className="font-semibold flex items-center gap-2">
@@ -731,7 +876,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         </div>
                                     </div>
 
-                                    {isScreenSharing && !isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails()}
+                                    {isScreenSharing && !isSidebarOpen && !isPeopleCollapsed && !showEnhancePanel && renderPeopleThumbnails()}
                                 </aside>
                             </div>
                         </div>
@@ -774,12 +919,22 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <Hand className="w-5 h-5" />
                             </Button>
 
+                            <Button
+                                size="icon-lg"
+                                variant={showEnhancePanel ? 'default' : 'secondary'}
+                                onClick={() => { setShowEnhancePanel(v => !v); setIsSidebarOpen(false) }}
+                                className={`rounded-xl transition-all duration-200 active:scale-90 ${showEnhancePanel ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
+                                title={t('room.enhance_toggle')}
+                            >
+                                <Palette className="w-5 h-5" />
+                            </Button>
+
                             <span className="w-px h-8 bg-border/60 mx-1" />
 
                             <Button
                                 size="icon-lg"
                                 variant={isSidebarOpen ? 'default' : 'secondary'}
-                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                onClick={() => { setIsSidebarOpen(!isSidebarOpen); setShowEnhancePanel(false) }}
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${isSidebarOpen ? 'bg-brand text-primary-foreground' : ''}`}
                             >
                                 <Users className="w-5 h-5" />
@@ -800,10 +955,10 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                 </div>
             </div>
 
-            {isSidebarOpen && (
+            {(isSidebarOpen || showEnhancePanel) && (
                 <div
                     className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
-                    onClick={() => setIsSidebarOpen(false)}
+                    onClick={() => { setIsSidebarOpen(false); setShowEnhancePanel(false) }}
                 />
             )}
         </div>
