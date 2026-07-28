@@ -21,6 +21,15 @@ export interface ParticipantInfo {
     isHandRaised: boolean
 }
 
+export interface ReactionEvent {
+    socketId: string
+    emoji: string
+    id: string
+    x: number
+    y: number
+    size: number
+}
+
 export function useWebRTC(
     roomId: string,
     localStream: MediaStream | null,
@@ -29,6 +38,7 @@ export function useWebRTC(
 ) {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
     const [remoteParticipants, setRemoteParticipants] = useState<Record<string, ParticipantInfo>>({})
+    const [remoteReactions, setRemoteReactions] = useState<ReactionEvent[]>([])
     const [roomEnded, setRoomEnded] = useState(false)
 
     const socketRef = useRef<Socket | null>(null)
@@ -54,6 +64,12 @@ export function useWebRTC(
     const emitHandState = useCallback((isHandRaised: boolean) => {
         if (socketRef.current) {
             socketRef.current.emit('hand-state-change', { isHandRaised })
+        }
+    }, [])
+
+    const emitReaction = useCallback((emoji: string) => {
+        if (socketRef.current) {
+            socketRef.current.emit('send-reaction', { emoji })
         }
     }, [])
 
@@ -142,6 +158,17 @@ export function useWebRTC(
             })
         })
 
+        socket.on('peer-reaction', ({ socketId, emoji }) => {
+            const id = `${socketId}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+            const x = Math.floor(Math.random() * 160) - 80
+            const y = Math.floor(Math.random() * 120)
+            const size = Math.random() < 0.2 ? Math.floor(Math.random() * 10) + 32 : 44
+            setRemoteReactions(prev => [...prev, { socketId, emoji, id, x, y, size }])
+            setTimeout(() => {
+                setRemoteReactions(prev => prev.filter(r => r.id !== id))
+            }, 4000)
+        })
+
         socket.on('webrtc-offer', async ({ fromSocketId, offer }) => {
             const pc = createPeerConnection(fromSocketId, socket)
             peersRef.current[fromSocketId] = pc
@@ -212,5 +239,5 @@ export function useWebRTC(
         }
     }, [])
 
-    return { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack }
+    return { remoteStreams, remoteParticipants, remoteReactions, endRoom, roomEnded, emitMediaState, emitHandState, emitReaction, replaceVideoTrack }
 }
