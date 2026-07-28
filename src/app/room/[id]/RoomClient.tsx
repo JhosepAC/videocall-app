@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal, SmilePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
@@ -10,6 +10,7 @@ import { useVideoEnhancer, DEFAULT_ENHANCEMENT } from '@/hooks/useVideoEnhancer'
 import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
 import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
+import { getEmojiUrl, EMOJI_LIST } from '@/lib/emojis'
 
 const MAX_GRID_PAGE_SIZE = 9
 
@@ -148,11 +149,26 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
     const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({ ...DEFAULT_ENHANCEMENT })
     const [showEnhancePanel, setShowEnhancePanel] = useState(false)
+    const [localReactions, setLocalReactions] = useState<{ emoji: string; id: string; x: number; y: number; size: number }[]>([])
+    const [showReactionPicker, setShowReactionPicker] = useState(false)
+    const pickerRef = useRef<HTMLDivElement>(null)
+    const reactionYIndexRef = useRef(0)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
         return () => clearInterval(id)
     }, [])
+
+    useEffect(() => {
+        if (!showReactionPicker) return
+        const handleClick = (e: MouseEvent) => {
+            if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+                setShowReactionPicker(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClick)
+        return () => document.removeEventListener('mousedown', handleClick)
+    }, [showReactionPicker])
 
     useEffect(() => {
         const supabase = createClient()
@@ -187,7 +203,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         return localStream
     }, [localStream, enhancedTrack, enhanceConfig.enabled])
 
-    const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
+    const { remoteStreams, remoteParticipants, remoteReactions, endRoom, roomEnded, emitMediaState, emitHandState, emitReaction, replaceVideoTrack } = useWebRTC(
         roomId,
         localStream,
         screenTrack,
@@ -263,6 +279,27 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         setIsHandRaised(newState)
         emitHandState(newState)
     }
+
+    const handleReact = (emoji: string) => {
+        const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+        const x = Math.floor(Math.random() * 280) - 80
+        const yOffsets = [0, 30, 60, 90, 120, 150]
+        const yIndex = reactionYIndexRef.current
+        reactionYIndexRef.current = (yIndex + 1) % yOffsets.length
+        const y = yOffsets[yIndex]
+        const size = Math.random() < 0.2 ? Math.floor(Math.random() * 10) + 32 : 44
+        setLocalReactions(prev => [...prev, { emoji, id, x, y, size }])
+        emitReaction(emoji)
+        setTimeout(() => {
+            setLocalReactions(prev => prev.filter(r => r.id !== id))
+        }, 4000)
+    }
+
+    const allReactions = useMemo(() => {
+        const remote = remoteReactions.map(r => ({ ...r, isLocal: false as const }))
+        const local = localReactions.map(r => ({ emoji: r.emoji, id: r.id, x: r.x, y: r.y, size: r.size, socketId: 'local', isLocal: true as const }))
+        return [...remote, ...local].sort((a, b) => a.id.localeCompare(b.id))
+    }, [remoteReactions, localReactions])
 
     function handleCopyRoomId() {
         navigator.clipboard.writeText(roomId)
@@ -929,6 +966,37 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <Palette className="w-5 h-5" />
                             </Button>
 
+                            <div className="relative" ref={pickerRef}>
+                                <Button
+                                    size="icon-lg"
+                                    variant={showReactionPicker ? 'default' : 'secondary'}
+                                    onClick={() => setShowReactionPicker(!showReactionPicker)}
+                                    className={`rounded-xl transition-all duration-200 active:scale-90 ${showReactionPicker ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
+                                    title={t('room.react')}
+                                >
+                                    <SmilePlus className="w-5 h-5" />
+                                </Button>
+                                {showReactionPicker && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5">
+                                        {EMOJI_LIST.map(({ emoji, label }) => (
+                                            <button
+                                                key={emoji}
+                                                onClick={() => handleReact(emoji)}
+                                                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-muted/80 transition-all duration-150 active:scale-90 hover:scale-110"
+                                            >
+                                                <img
+                                                    src={getEmojiUrl(emoji)}
+                                                    alt={label}
+                                                    aria-label={emoji}
+                                                    draggable={false}
+                                                    className="w-7 h-7"
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <span className="w-px h-8 bg-border/60 mx-1" />
 
                             <Button
@@ -954,6 +1022,25 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                     </footer>
                 </div>
             </div>
+
+            {allReactions.length > 0 && (
+                <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+                    {allReactions.map(r => (
+                        <div
+                            key={r.id}
+                            className="absolute animate-reaction leading-none"
+                            style={{ bottom: `calc(1rem + ${r.y}px)`, right: `calc(80px + ${r.x}px)` }}
+                        >
+                            <img
+                                src={getEmojiUrl(r.emoji)}
+                                alt={r.emoji}
+                                draggable={false}
+                                style={{ width: r.size + 'px', height: r.size + 'px' }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {(isSidebarOpen || showEnhancePanel) && (
                 <div

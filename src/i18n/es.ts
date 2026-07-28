@@ -239,6 +239,8 @@ export const es: Translations = {
     enhance_sharpness: 'Nitidez',
     enhance_denoise: 'Reducir Ruido',
     enhance_reset: 'Restablecer valores',
+    react: 'Reaccionar',
+    reactions: 'Reacciones',
   },
 
   media_errors: {

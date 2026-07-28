@@ -237,6 +237,8 @@ export const en = {
     enhance_sharpness: 'Sharpness',
     enhance_denoise: 'Denoise',
     enhance_reset: 'Reset to defaults',
+    react: 'React',
+    reactions: 'Reactions',
   },
 
   media_errors: {
