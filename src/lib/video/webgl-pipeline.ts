@@ -92,6 +92,9 @@ vec3 bilateral3x3(sampler2D tex, vec2 uv, vec2 t, float sigmaR) {
 void main() {
   vec3 color = texture(u_frame, v_uv).rgb;
 
+  float luma = dot(color, vec3(0.299, 0.587, 0.114));
+  float mask = smoothstep(0.01, 0.04, luma);
+
   if (u_denoise > 0.001) {
     vec3 prevColor = texture(u_prevFrame, v_uv).rgb;
     float diff = length(color - prevColor);
@@ -111,17 +114,21 @@ void main() {
     color *= vec3(finalGainR, 1.0, finalGainB);
   }
 
-  color = mix(vec3(dot(color, vec3(0.299, 0.587, 0.114))), color, u_saturate);
+  vec3 processed = color;
 
-  color += u_bright;
-  color = (color - 0.5) * u_contrast + 0.5;
+  processed = mix(vec3(dot(processed, vec3(0.299, 0.587, 0.114))), processed, u_saturate);
 
-  color = pow(clamp(color, 0.0, 1.0), vec3(1.0 / u_gamma));
+  processed += u_bright;
+  processed = (processed - 0.5) * u_contrast + 0.5;
+
+  processed = pow(clamp(processed, 0.0, 1.0), vec3(1.0 / u_gamma));
 
   if (u_sharp > 0.001) {
     vec3 blur = gaussianBlur5(u_frame, v_uv, u_texel);
-    color += (color - blur) * u_sharp;
+    processed += (processed - blur) * u_sharp;
   }
+
+  color = mix(color, processed, mask);
 
   fragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }`
@@ -303,6 +310,7 @@ export class WebGLPipeline {
       this.syncCanvasSize()
       gl.viewport(0, 0, this.canvas.width, this.canvas.height)
 
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, this.videoTex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v)
@@ -325,6 +333,7 @@ export class WebGLPipeline {
 
       const cfg = this.config
       const enabled = cfg.enabled
+
       gl.useProgram(this.program)
       gl.uniform2f(gl.getUniformLocation(this.program, 'u_texel'), 1 / this.canvas.width, 1 / this.canvas.height)
       gl.uniform1f(gl.getUniformLocation(this.program, 'u_wbTemp'), enabled ? cfg.whiteBalance : 0)
@@ -342,7 +351,7 @@ export class WebGLPipeline {
       gl.bindVertexArray(null)
 
       gl.bindTexture(gl.TEXTURE_2D, this.prevTex)
-      gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.canvas.width, this.canvas.height, 0)
+      gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 0, 0, this.canvas.width, this.canvas.height, 0)
 
       this.animId = requestAnimationFrame(loop)
     }

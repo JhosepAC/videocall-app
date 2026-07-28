@@ -12,7 +12,6 @@ export function useVideoEnhancer(
 ) {
   const [enhancedTrack, setEnhancedTrack] = useState<MediaStreamTrack | null>(null)
   const pipelineRef = useRef<WebGLPipeline | null>(null)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
     if (!localStream) return
@@ -42,14 +41,12 @@ export function useVideoEnhancer(
     })
 
     pipelineRef.current = pipeline
-    videoRef.current = video
 
     return () => {
       pipeline.destroy()
       video.pause()
       video.remove()
       pipelineRef.current = null
-      videoRef.current = null
       setEnhancedTrack(null)
     }
   }, [localStream])
