@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal, SmilePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/components/i18n/i18n-provider'
 import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
@@ -10,6 +10,9 @@ import { useVideoEnhancer, DEFAULT_ENHANCEMENT } from '@/hooks/useVideoEnhancer'
 import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
 import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
 import { createClient } from '@/lib/supabase/client'
+import { getEmojiUrl, EMOJI_LIST } from '@/lib/emojis'
+import { useDominantColor } from '@/hooks/useDominantColor'
+import { getCircularGradientFromColor, getGradientFromColor } from '@/lib/utils'
 
 const MAX_GRID_PAGE_SIZE = 9
 
@@ -29,6 +32,7 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
 
     const name = info.fullName || 'Participant'
     const username = info.username ? `@${info.username}` : ''
+    const dominantColor = useDominantColor(info.avatarUrl || null)
 
     return (
         <div className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
@@ -40,16 +44,17 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
             />
 
             {!isVideoPlaying && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
+                <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300"
+                    style={{ background: getGradientFromColor(dominantColor) }}>
                     {info.avatarUrl ? (
                         <img
                             src={info.avatarUrl}
                             alt={name}
-                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
+                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
                         />
                     ) : (
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
-                            <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl">
+                            <User className="w-12 h-12 md:w-16 md:h-16 text-foreground/60" />
                         </div>
                     )}
                 </div>
@@ -73,6 +78,26 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
                     </div>
                 )}
             </div>
+        </div>
+    )
+}
+
+const ThumbnailFallback = ({ avatarUrl, name, imgSize, iconSize, iconCircleSize }: { avatarUrl?: string | null; name: string; imgSize: string; iconSize: string; iconCircleSize: string }) => {
+    const dominantColor = useDominantColor(avatarUrl || null)
+    return (
+        <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm transition-all duration-300"
+            style={{ background: getGradientFromColor(dominantColor) }}>
+            {avatarUrl ? (
+                <img
+                    src={avatarUrl}
+                    alt={name}
+                    className={`${imgSize} rounded-full object-cover ring-2 ring-white/20 shadow-2xl`}
+                />
+            ) : (
+                <div className={`${iconCircleSize} rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl`}>
+                    <User className={`${iconSize} text-foreground/60`} />
+                </div>
+            )}
         </div>
     )
 }
@@ -148,11 +173,27 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
     const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({ ...DEFAULT_ENHANCEMENT })
     const [showEnhancePanel, setShowEnhancePanel] = useState(false)
+    const [localReactions, setLocalReactions] = useState<{ emoji: string; id: string; x: number; y: number; size: number }[]>([])
+    const [showReactionPicker, setShowReactionPicker] = useState(false)
+    const pickerRef = useRef<HTMLDivElement>(null)
+    const reactionYIndexRef = useRef(0)
+    const reactionLastXRef = useRef(0)
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
         return () => clearInterval(id)
     }, [])
+
+    useEffect(() => {
+        if (!showReactionPicker) return
+        const handleClick = (e: MouseEvent) => {
+            if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+                setShowReactionPicker(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClick)
+        return () => document.removeEventListener('mousedown', handleClick)
+    }, [showReactionPicker])
 
     useEffect(() => {
         const supabase = createClient()
@@ -187,11 +228,23 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         return localStream
     }, [localStream, enhancedTrack, enhanceConfig.enabled])
 
-    const { remoteStreams, remoteParticipants, endRoom, roomEnded, emitMediaState, emitHandState, replaceVideoTrack } = useWebRTC(
+    const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
+        if (el && localDisplayStream) {
+            el.srcObject = localDisplayStream
+        }
+    }, [localDisplayStream])
+
+    const userInfo = useMemo(() => ({
+        userId, fullName, username, avatarUrl,
+        isVideoMuted: isVideoStopped, isAudioMuted
+    }), [userId, fullName, username, avatarUrl, isVideoStopped, isAudioMuted])
+
+    const { remoteStreams, remoteParticipants, remoteReactions, endRoom, roomEnded, emitMediaState, emitHandState, emitReaction, replaceVideoTrack } = useWebRTC(
         roomId,
         localStream,
         screenTrack,
-        { userId, fullName, username, avatarUrl, isVideoMuted: isVideoStopped, isAudioMuted, isHandRaised }
+        userInfo,
+        isHandRaised
     )
 
     useEffect(() => {
@@ -258,11 +311,51 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         }
     }
 
+    const handAudioRef = useRef<HTMLAudioElement | null>(null)
+
+    useEffect(() => {
+        handAudioRef.current = new Audio('/sounds/raise-hand.mp3')
+    }, [])
+
     const handleToggleHand = () => {
         const newState = !isHandRaised
         setIsHandRaised(newState)
         emitHandState(newState)
+        if (newState && handAudioRef.current) {
+            handAudioRef.current.currentTime = 0
+            handAudioRef.current.play().catch(() => {})
+        }
     }
+
+    const handleReact = (emoji: string) => {
+        const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+        const minDist = 50
+        let x = Math.floor(Math.random() * 280) - 80
+        for (let i = 0; i < 20; i++) {
+            const candidate = Math.floor(Math.random() * 280) - 80
+            if (Math.abs(candidate - reactionLastXRef.current) >= minDist) {
+                x = candidate
+                break
+            }
+        }
+        reactionLastXRef.current = x
+        const yOffsets = [0, 30, 60, 90, 120, 150]
+        const yIndex = reactionYIndexRef.current
+        reactionYIndexRef.current = (yIndex + 1) % yOffsets.length
+        const y = yOffsets[yIndex]
+        const size = Math.random() < 0.2 ? Math.floor(Math.random() * 10) + 32 : 44
+        setLocalReactions(prev => [...prev, { emoji, id, x, y, size }])
+        emitReaction(emoji)
+        setTimeout(() => {
+            setLocalReactions(prev => prev.filter(r => r.id !== id))
+        }, 4000)
+    }
+
+    const allReactions = useMemo(() => {
+        const remote = remoteReactions.map(r => ({ ...r, isLocal: false as const }))
+        const local = localReactions.map(r => ({ emoji: r.emoji, id: r.id, x: r.x, y: r.y, size: r.size, socketId: 'local', isLocal: true as const }))
+        return [...remote, ...local].sort((a, b) => a.id.localeCompare(b.id))
+    }, [remoteReactions, localReactions])
 
     function handleCopyRoomId() {
         navigator.clipboard.writeText(roomId)
@@ -376,18 +469,10 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                     isVideoStopped ? 'opacity-0' : 'opacity-100'
                                 } scale-x-[-1]`}
-                                ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                ref={setLocalVideoRef}
                             />
                             {isVideoStopped && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                    {avatarUrl ? (
-                                        <img src={avatarUrl} alt={displayName} className="w-18 h-18 rounded-full object-cover ring-2 ring-brand/20" />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                            <User className="w-6 h-6 text-brand" />
-                                        </div>
-                                    )}
-                                </div>
+                                <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-18 h-18" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
                             )}
                             <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
                                 <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
@@ -426,15 +511,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         ref={el => { if (el) el.srcObject = stream }}
                                     />
                                     {!isVideoPlaying && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                            {info.avatarUrl ? (
-                                                <img src={info.avatarUrl} alt={remoteName} className="w-12 h-12 rounded-full object-cover ring-2 ring-brand/20" />
-                                            ) : (
-                                                <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                    <User className="w-6 h-6 text-brand" />
-                                                </div>
-                                            )}
-                                        </div>
+                                        <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-12 h-12" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
                                     )}
                                     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
                                         <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
@@ -476,18 +553,10 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
                                         isVideoStopped ? 'opacity-0' : 'opacity-100'
                                     } scale-x-[-1]`}
-                                    ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                    ref={setLocalVideoRef}
                                 />
                                 {isVideoStopped && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                        {avatarUrl ? (
-                                            <img src={avatarUrl} alt={displayName} className="w-22 h-22 rounded-full object-cover ring-2 ring-brand/20" />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                <User className="w-5 h-5 text-brand" />
-                                            </div>
-                                        )}
-                                    </div>
+                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-22 h-22" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
                                 )}
                             </div>
                             <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
@@ -529,15 +598,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                             ref={el => { if (el) el.srcObject = stream }}
                                         />
                                         {!isVideoPlaying && (
-                                            <div className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-sm">
-                                                {info.avatarUrl ? (
-                                                    <img src={info.avatarUrl} alt={remoteName} className="w-10 h-10 rounded-full object-cover ring-2 ring-brand/20" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                                        <User className="w-5 h-5 text-brand" />
-                                                    </div>
-                                                )}
-                                            </div>
+                                            <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-10 h-10" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
                                         )}
                                     </div>
                                     <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
@@ -640,23 +701,11 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                         className={`w-full h-full object-cover transition-opacity duration-300 ${
                                                             isVideoStopped ? 'opacity-0' : 'opacity-100'
                                                         } scale-x-[-1]`}
-                                                        ref={el => { if (el && localDisplayStream) el.srcObject = localDisplayStream }}
+                                                        ref={setLocalVideoRef}
                                                     />
 
                                                     {isVideoStopped && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-card/95 backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300">
-                                                            {avatarUrl ? (
-                                                                <img
-                                                                    src={avatarUrl}
-                                                                    alt={displayName}
-                                                                    className="w-32 h-32 md:w-75 md:h-75 rounded-full object-cover ring-4 ring-brand/20 shadow-2xl"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-brand/10 border-2 border-brand/20 flex items-center justify-center text-brand shadow-xl">
-                                                                    <User className="w-12 h-12 md:w-16 md:h-16 text-brand" />
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-32 h-32 md:w-75 md:h-75" iconSize="w-12 h-12 md:w-16 md:h-16" iconCircleSize="w-24 h-24 md:w-32 md:h-32" />
                                                     )}
 
                                                     <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
@@ -929,6 +978,37 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 <Palette className="w-5 h-5" />
                             </Button>
 
+                            <div className="relative" ref={pickerRef}>
+                                <Button
+                                    size="icon-lg"
+                                    variant={showReactionPicker ? 'default' : 'secondary'}
+                                    onClick={() => setShowReactionPicker(!showReactionPicker)}
+                                    className={`rounded-xl transition-all duration-200 active:scale-90 ${showReactionPicker ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
+                                    title={t('room.react')}
+                                >
+                                    <SmilePlus className="w-5 h-5" />
+                                </Button>
+                                {showReactionPicker && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5 z-10">
+                                        {EMOJI_LIST.map(({ emoji, label }) => (
+                                            <button
+                                                key={emoji}
+                                                onClick={() => handleReact(emoji)}
+                                                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-muted/80 transition-all duration-150 active:scale-90 hover:scale-110"
+                                            >
+                                                <img
+                                                    src={getEmojiUrl(emoji)}
+                                                    alt={label}
+                                                    aria-label={emoji}
+                                                    draggable={false}
+                                                    className="w-7 h-7"
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <span className="w-px h-8 bg-border/60 mx-1" />
 
                             <Button
@@ -954,6 +1034,25 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                     </footer>
                 </div>
             </div>
+
+            {allReactions.length > 0 && (
+                <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+                    {allReactions.map(r => (
+                        <div
+                            key={r.id}
+                            className="absolute animate-reaction leading-none"
+                            style={{ bottom: `calc(1rem + ${r.y}px)`, left: `calc(80px + ${r.x}px)` }}
+                        >
+                            <img
+                                src={getEmojiUrl(r.emoji)}
+                                alt={r.emoji}
+                                draggable={false}
+                                style={{ width: r.size + 'px', height: r.size + 'px' }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {(isSidebarOpen || showEnhancePanel) && (
                 <div
