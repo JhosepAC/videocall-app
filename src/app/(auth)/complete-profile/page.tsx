@@ -25,7 +25,7 @@ const ERROR_MAP: Record<string, string> = {
 }
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 50 * 1024 * 1024
 
 export default function CompleteProfilePage() {
     const { t } = useI18n()

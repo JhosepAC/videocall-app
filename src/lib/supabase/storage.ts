@@ -21,7 +21,7 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
         throw new Error('invalid_file_type')
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > 50 * 1024 * 1024) {
         throw new Error('file_too_large')
     }
 
