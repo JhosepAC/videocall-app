@@ -558,10 +558,22 @@ export default function RoomClient({roomId}: RoomClientProps) {
     }
 
     const handAudioRef = useRef<HTMLAudioElement | null>(null)
+    const requestAudioRef = useRef<HTMLAudioElement | null>(null)
+    const prevRequestCountRef = useRef(0)
 
     useEffect(() => {
         handAudioRef.current = new Audio('/sounds/raise-hand.mp3')
+        requestAudioRef.current = new Audio('/sounds/application-participation.mp3')
     }, [])
+
+    useEffect(() => {
+        if (requests.length > prevRequestCountRef.current && requestAudioRef.current) {
+            requestAudioRef.current.currentTime = 0
+            requestAudioRef.current.play().catch(() => {
+            })
+        }
+        prevRequestCountRef.current = requests.length
+    }, [requests.length])
 
     const handleToggleHand = () => {
         const newState = !isHandRaised
