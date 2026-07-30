@@ -149,32 +149,48 @@ export function useWebRTC(
         })
     }, [])
 
+    const negotiate = useCallback(async (peerId: string) => {
+        const socket = socketRef.current
+        if (!socket?.connected) return
+        const peer = peersRef.current[peerId]
+        if (!peer || peer.signalingState !== 'stable') return
+        try {
+            const offer = await peer.createOffer()
+            await peer.setLocalDescription(offer)
+            socket.emit('webrtc-offer', {toSocketId: peerId, offer})
+        } catch (error) {
+            console.warn('[WebRTC] Unable to negotiate', error)
+        }
+    }, [])
+
     const addScreenTrack = useCallback((track: MediaStreamTrack) => {
-        Object.values(peersRef.current).forEach(peer => {
+        Object.entries(peersRef.current).forEach(([peerId, peer]) => {
             const alreadyAdded = peer.getSenders().some(s => s.track === track)
             if (alreadyAdded) return
             try {
                 peer.addTrack(track, new MediaStream([track]))
+                negotiate(peerId)
             } catch (err) {
                 console.warn('[WebRTC] Unable to add screen track', err)
             }
         })
-    }, [])
+    }, [negotiate])
 
     const removeScreenTrack = useCallback(() => {
         const track = screenTrackRef.current
         if (!track) return
-        Object.values(peersRef.current).forEach(peer => {
+        Object.entries(peersRef.current).forEach(([peerId, peer]) => {
             const sender = peer.getSenders().find(s => s.track === track)
             if (sender) {
                 try {
                     peer.removeTrack(sender)
+                    negotiate(peerId)
                 } catch (err) {
                     console.warn('[WebRTC] Unable to remove screen track', err)
                 }
             }
         })
-    }, [])
+    }, [negotiate])
 
     const createPeerConnection = useCallback((peerId: string, socket: Socket) => {
         const existing = peersRef.current[peerId]

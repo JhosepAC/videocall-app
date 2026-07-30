@@ -6,6 +6,7 @@ import {
     AlertCircle,
     Camera,
     CameraOff,
+    Cast,
     Check,
     ChevronDown,
     ChevronLeft,
@@ -124,7 +125,7 @@ const RemoteVideo = ({stream, info, className = ''}: {
     )
 }
 
-const ScreenShareTile = ({stream, participantName, isPinned, onTogglePin, canPin}: {
+const ScreenShareTile = ({ stream, participantName, isPinned, onTogglePin, canPin }: {
     stream: MediaStream | null;
     participantName: string;
     isPinned: boolean;
@@ -132,14 +133,15 @@ const ScreenShareTile = ({stream, participantName, isPinned, onTogglePin, canPin
     canPin?: boolean;
 }) => {
     const videoRef = useRef<HTMLVideoElement>(null)
+
     useEffect(() => {
         if (videoRef.current) {
             videoRef.current.srcObject = stream
         }
     }, [stream])
+
     return (
-        <div
-            className="relative min-w-0 w-full h-full rounded-2xl overflow-hidden bg-black/80 shadow-lg ring-1 ring-white/10 group">
+        <div className="relative w-full h-full min-h-0 min-w-0 flex items-center justify-center overflow-hidden group">
             <video
                 ref={videoRef}
                 autoPlay
@@ -147,29 +149,46 @@ const ScreenShareTile = ({stream, participantName, isPinned, onTogglePin, canPin
                 muted
                 className="w-full h-full object-contain"
             />
+
             {!stream && (
-                <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
-                    Connecting presentation…
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+                    <div className="relative">
+                        <div
+                            className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                            <Cast className="w-6 h-6 text-white/70"/>
+                        </div>
+                        <span
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand flex items-center justify-center">
+                            <Loader2 className="w-2.5 h-2.5 text-white animate-spin"/>
+                        </span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm font-medium text-white/90">Connecting presentation</span>
+                        <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+                                  style={{animationDelay: '0ms'}}/>
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+                                  style={{animationDelay: '150ms'}}/>
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+                                  style={{animationDelay: '300ms'}}/>
+                        </div>
+                    </div>
                 </div>
             )}
-            <div
-                className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 via-black/20 to-transparent px-3 pb-3 pt-8 pointer-events-none">
-                <span className="min-w-0 truncate text-xs font-medium text-white">{participantName}</span>
-                {isPinned && <span
-                    className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">Pinned</span>}
-            </div>
+
+            {/* Floating controls */}
             {canPin && onTogglePin && (
                 <button
                     onClick={onTogglePin}
                     aria-label={isPinned ? `Unpin ${participantName}'s screen` : `Pin ${participantName}'s screen`}
-                    className={`absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center backdrop-blur-md rounded-xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
+                    className={`absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center backdrop-blur-md rounded-xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
                         isPinned
                             ? 'bg-brand/90 hover:bg-brand shadow-lg shadow-brand/30'
                             : 'bg-black/60 hover:bg-white/20'
                     }`}
                     title={isPinned ? 'Unpin' : 'Pin'}
                 >
-                    <Pin className={`w-5 h-5 ${isPinned ? 'fill-current' : ''}`}/>
+                    <Pin className={`w-4 h-4 ${isPinned ? 'fill-current' : ''}`}/>
                 </button>
             )}
         </div>
@@ -950,12 +969,17 @@ export default function RoomClient({roomId}: RoomClientProps) {
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="flex-1 flex min-h-0">
-                        <main className="flex-1 flex flex-col overflow-hidden">
+                        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
                             {isRoomScreenSharing ? (
-                                <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
+                                <div className="flex-1 min-h-0 min-w-0 flex flex-col p-3 gap-3 overflow-hidden">
                                     {mainScreenShares.length > 0 && (
                                         <div
-                                            className={`flex-1 min-h-0 grid gap-3 ${mainScreenShares.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                                            className={`flex-1 min-h-0 min-w-0 grid gap-3 ${
+                                                mainScreenShares.length === 2
+                                                    ? 'grid-cols-1 md:grid-cols-2 grid-rows-2 md:grid-rows-1'
+                                                    : 'grid-cols-1 grid-rows-1'
+                                            }`}
+                                        >
                                             {mainScreenShares.map(({participant, stream}) => (
                                                 <ScreenShareTile
                                                     key={participant.participantId}
@@ -968,16 +992,17 @@ export default function RoomClient({roomId}: RoomClientProps) {
                                             ))}
                                         </div>
                                     )}
+
+                                    {/* Bottom thumbnails for additional shared screens */}
                                     {additionalScreenShares.length > 0 && (
-                                        <div className="shrink-0 flex gap-2 overflow-x-auto pb-1 px-1"
-                                             aria-label="Other shared screens">
+                                        <div className="shrink-0 flex gap-2 overflow-x-auto pb-1 px-1" aria-label="Other shared screens">
                                             {additionalScreenShares.map(({participant, stream}) => {
                                                 const isPinned = activePinnedShareId === participant.participantId
                                                 return (
                                                     <button
                                                         type="button"
                                                         key={participant.participantId}
-                                                        className="relative h-20 aspect-video shrink-0 rounded-xl overflow-hidden cursor-pointer bg-black/80 ring-1 ring-white/10 transition-all duration-200 hover:ring-brand/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand group"
+                                                        className="relative h-20 aspect-video shrink-0 rounded-xl overflow-hidden cursor-pointer ring-1 ring-white/10 transition-all duration-200 hover:ring-brand/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand group"
                                                         onClick={() => setPinnedShareId(current => current === participant.participantId ? null : participant.participantId)}
                                                         aria-label={`Pin ${participant.fullName || t('room.participant')}'s screen`}
                                                         title="Pin"
@@ -989,15 +1014,8 @@ export default function RoomClient({roomId}: RoomClientProps) {
                                                                 if (el) el.srcObject = stream
                                                             }}
                                                         />
-                                                        <div
-                                                            className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                                                            <span className="text-[10px] text-white truncate block">
-                                                                {participant.fullName || t('room.participant')}
-                                                            </span>
-                                                        </div>
                                                         {isPinned && (
-                                                            <div
-                                                                className="absolute top-1 right-1 bg-brand/90 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                                            <div className="absolute top-1 right-1 bg-brand/90 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
                                                                 PIN
                                                             </div>
                                                         )}
@@ -1105,7 +1123,7 @@ export default function RoomClient({roomId}: RoomClientProps) {
                                 </div>
                             )}
 
-                            {isRoomScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[0.3] min-h-0', true)}
+                            {isRoomScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[0.28] min-h-0', true)}
                         </main>
 
                         <div
