@@ -1,6 +1,13 @@
+[![Project Status](https://img.shields.io/badge/Status-In%20Development-yellow?style=for-the-badge)](#)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](#)
+[![Type](https://img.shields.io/badge/Type-Personal%20Project-blue?style=for-the-badge)](#)
+
 # MeetMesh — Videocall App
 
 P2P video calling platform with real-time video enhancement, guest access, and screen sharing.
+
+> [!IMPORTANT]
+> Required repository (server): https://github.com/JhosepAC/meetmesh-signaling
 
 ## Tech Stack
 
@@ -231,3 +238,9 @@ For connections between peers behind symmetric NATs, deploy a TURN server (e.g. 
 ```
 NEXT_PUBLIC_ICE_SERVERS=[{"urls":"turn:turn.example.com:3478","username":"user","credential":"pass"}]
 ```
+## Contact & Socials
+
+[![Portfolio](https://img.shields.io/badge/Portfolio-Check%20it%20out-black?style=for-the-badge&logo=googlechrome&logoColor=white)](https://jhosep-ac.pages.dev)
+[![Instagram](https://img.shields.io/badge/Instagram-Follow%20Me-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://instagram.com/jh_slin)
+[![Gmail](https://img.shields.io/badge/Gmail-Contact%20Me-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:jhosepjamil@gmail.com)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-WRITE%20ME-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://wa.me/51978777386)
