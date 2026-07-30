@@ -176,19 +176,19 @@ const ScreenShareTile = ({ stream, participantName, isPinned, onTogglePin, canPi
                 </div>
             )}
 
-            {/* Floating controls */}
+            {/* Pin toggle centered */}
             {canPin && onTogglePin && (
                 <button
                     onClick={onTogglePin}
                     aria-label={isPinned ? `Unpin ${participantName}'s screen` : `Pin ${participantName}'s screen`}
-                    className={`absolute top-3 right-3 z-20 w-9 h-9 flex items-center justify-center backdrop-blur-md rounded-xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
+                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-12 h-12 flex items-center justify-center backdrop-blur-md rounded-2xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
                         isPinned
-                            ? 'bg-brand/90 hover:bg-brand shadow-lg shadow-brand/30'
+                            ? 'bg-brand/90 hover:bg-brand shadow-lg shadow-brand/30 scale-110'
                             : 'bg-black/60 hover:bg-white/20'
                     }`}
                     title={isPinned ? 'Unpin' : 'Pin'}
                 >
-                    <Pin className={`w-4 h-4 ${isPinned ? 'fill-current' : ''}`}/>
+                    <Pin className={`w-5 h-5 ${isPinned ? 'fill-current' : ''}`}/>
                 </button>
             )}
         </div>
@@ -485,21 +485,17 @@ export default function RoomClient({roomId}: RoomClientProps) {
 
     const isRoomScreenSharing = activeScreenShareIds.length > 0
 
-    // A pinned presentation is promoted to the first main slot.  The second
-    // slot is filled by the next active share, so two shares are always visible
-    // together and a selected share never disappears from the primary area.
+    // When pinned, only the pinned screen fills the main area; all other
+    // shares move to the bottom carousel.
     const activePinnedShareId = pinnedShareId && activeScreenShareIds.includes(pinnedShareId)
         ? pinnedShareId
         : null
 
     const mainScreenShares = useMemo(() => {
-        const ordered = activePinnedShareId
-            ? [
-                ...screenShareParticipants.filter(item => item.participant.participantId === activePinnedShareId),
-                ...screenShareParticipants.filter(item => item.participant.participantId !== activePinnedShareId),
-            ]
-            : screenShareParticipants
-        return ordered.slice(0, 2)
+        if (activePinnedShareId) {
+            return screenShareParticipants.filter(item => item.participant.participantId === activePinnedShareId)
+        }
+        return screenShareParticipants.slice(0, 2)
     }, [screenShareParticipants, activePinnedShareId])
 
     const additionalScreenShares = useMemo(() => {
