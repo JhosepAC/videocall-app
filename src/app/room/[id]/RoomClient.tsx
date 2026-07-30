@@ -151,7 +151,7 @@ const ScreenShareTile = ({ stream, participantName, isPinned, onTogglePin, canPi
             />
 
             {!stream && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black rounded-2xl backdrop-blur-sm">
                     <div className="relative">
                         <div
                             className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
@@ -162,7 +162,7 @@ const ScreenShareTile = ({ stream, participantName, isPinned, onTogglePin, canPi
                             <Loader2 className="w-2.5 h-2.5 text-white animate-spin"/>
                         </span>
                     </div>
-                    <div className="flex flex-col items-center gap-1">
+                    <div className="flex flex-col items-center gap-5">
                         <span className="text-sm font-medium text-white/90">Connecting presentation</span>
                         <div className="flex gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
