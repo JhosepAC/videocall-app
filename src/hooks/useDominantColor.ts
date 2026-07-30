@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import {useEffect, useState} from 'react'
 
 const cache = new Map<string, string>()
 
@@ -16,7 +16,7 @@ function getAverageColor(data: Uint8ClampedArray): { r: number; g: number; b: nu
         }
     }
     if (count === 0) return null
-    return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) }
+    return {r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count)}
 }
 
 export function useDominantColor(imageUrl: string | null): string | null {

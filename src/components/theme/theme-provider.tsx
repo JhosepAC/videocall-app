@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, createContext, useContext, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import {createContext, useCallback, useContext, useEffect, useState} from 'react'
+import {createClient} from '@/lib/supabase/client'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -38,7 +38,7 @@ function getInitialTheme(): Theme {
     return 'system'
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({children}: { children: React.ReactNode }) {
     const [theme, setThemeState] = useState<Theme>(getInitialTheme)
 
     useEffect(() => {
@@ -47,7 +47,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (!saved) {
             ;(async () => {
                 const supabase = createClient()
-                const { data: { user } } = await supabase.auth.getUser()
+                const {data: {user}} = await supabase.auth.getUser()
                 if (user) {
                     const res = await supabase
                         .from('profiles')
@@ -75,14 +75,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         applyThemeClass(t)
 
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const {data: {user}} = await supabase.auth.getUser()
         if (user) {
-            await supabase.from('profiles').upsert({ id: user.id, theme: t })
+            await supabase.from('profiles').upsert({id: user.id, theme: t})
         }
     }, [])
 
     return (
-        <ThemeContext.Provider value={{ theme, setTheme }}>
+        <ThemeContext.Provider value={{theme, setTheme}}>
             {children}
         </ThemeContext.Provider>
     )

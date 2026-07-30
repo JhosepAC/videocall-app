@@ -1,26 +1,26 @@
-import { Metadata } from "next"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { ThemeProvider } from "@/components/theme/theme-provider"
-import { I18nProvider } from "@/components/i18n/i18n-provider"
-import { DashboardContent } from "./dashboard-content"
+import {Metadata} from "next"
+import {createClient} from "@/lib/supabase/server"
+import {redirect} from "next/navigation"
+import {ThemeProvider} from "@/components/theme/theme-provider"
+import {I18nProvider} from "@/components/i18n/i18n-provider"
+import {DashboardContent} from "./dashboard-content"
 
 export const metadata: Metadata = {
     title: "Dashboard | Video Conference Platform",
     description: "Manage your high-quality P2P meeting rooms.",
-    authors: [{ name: "Jhosep Argomedo" }],
+    authors: [{name: "Jhosep Argomedo"}],
     keywords: ["WebRTC", "React", "Software Engineering", "Video Conferencing"],
 }
 
 export default async function DashboardPage() {
     const supabase = await createClient()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const {data: {user}} = await supabase.auth.getUser()
     if (!user) {
         redirect("/login")
     }
 
-    const { data: profile } = await supabase
+    const {data: profile} = await supabase
         .from("profiles")
         .select("full_name, username, avatar_url")
         .eq("id", user.id)
@@ -36,8 +36,9 @@ export default async function DashboardPage() {
     return (
         <ThemeProvider>
             <I18nProvider>
-                <div className="min-h-screen flex flex-col bg-surface dark:bg-background font-sans transition-colors selection:bg-brand/20">
-                    <DashboardContent firstName={firstName} currentYear={currentYear} />
+                <div
+                    className="min-h-screen flex flex-col bg-surface dark:bg-background font-sans transition-colors selection:bg-brand/20">
+                    <DashboardContent firstName={firstName} currentYear={currentYear}/>
                 </div>
             </I18nProvider>
         </ThemeProvider>
