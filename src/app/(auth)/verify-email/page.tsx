@@ -1,21 +1,21 @@
 'use client'
 
-import { Suspense } from 'react'
+import {Suspense} from 'react'
 import Link from 'next/link'
-import { Mail, ExternalLink, ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useI18n } from '@/components/i18n/i18n-provider'
-import { useSearchParams } from 'next/navigation'
+import {ArrowLeft, ExternalLink, Mail} from 'lucide-react'
+import {Button} from '@/components/ui/button'
+import {useI18n} from '@/components/i18n/i18n-provider'
+import {useSearchParams} from 'next/navigation'
 
 function VerifyEmailContent() {
-    const { t } = useI18n()
+    const {t} = useI18n()
     const searchParams = useSearchParams()
     const email = searchParams?.get('email') || t('auth.verify_email.your_email')
 
     return (
         <div className="flex flex-col items-center text-center space-y-8 text-foreground">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
-                <Mail className="w-8 h-8 text-brand" />
+                <Mail className="w-8 h-8 text-brand"/>
             </div>
 
             <div className="space-y-2">
@@ -34,8 +34,9 @@ function VerifyEmailContent() {
                 rel="noopener noreferrer"
                 className="w-full"
             >
-                <Button className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl">
-                    <ExternalLink className="w-4 h-4" />
+                <Button
+                    className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl">
+                    <ExternalLink className="w-4 h-4"/>
                     {t('auth.verify_email.open_gmail')}
                 </Button>
             </a>
@@ -49,7 +50,7 @@ function VerifyEmailContent() {
                     href="/login"
                     className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover font-medium transition-colors"
                 >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-4 h-4"/>
                     {t('auth.verify_email.back_to_login')}
                 </Link>
             </div>
@@ -60,7 +61,7 @@ function VerifyEmailContent() {
 export default function VerifyEmailPage() {
     return (
         <Suspense fallback={null}>
-            <VerifyEmailContent />
+            <VerifyEmailContent/>
         </Suspense>
     )
 }

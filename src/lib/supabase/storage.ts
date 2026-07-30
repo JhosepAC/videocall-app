@@ -1,4 +1,4 @@
-import { createClient } from './client'
+import {createClient} from './client'
 
 const AVATARS_BUCKET = 'avatars'
 
@@ -8,7 +8,7 @@ export function getAvatarPath(userId: string): string {
 
 export function getAvatarPublicUrl(userId: string): string {
     const supabase = createClient()
-    const { data } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(getAvatarPath(userId))
+    const {data} = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(getAvatarPath(userId))
     return data.publicUrl
 }
 
@@ -27,14 +27,14 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
 
     const path = getAvatarPath(userId)
 
-    const { error: removeError } = await supabase.storage
+    const {error: removeError} = await supabase.storage
         .from(AVATARS_BUCKET)
         .remove([path])
     if (removeError && !removeError.message?.includes('not found')) {
         console.error('Error removing old avatar:', removeError)
     }
 
-    const { error: uploadError } = await supabase.storage
+    const {error: uploadError} = await supabase.storage
         .from(AVATARS_BUCKET)
         .upload(path, file, {
             upsert: true,
@@ -53,7 +53,7 @@ export async function deleteAvatar(userId: string): Promise<void> {
     const supabase = createClient()
     const path = getAvatarPath(userId)
 
-    const { error } = await supabase.storage
+    const {error} = await supabase.storage
         .from(AVATARS_BUCKET)
         .remove([path])
 

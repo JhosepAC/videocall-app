@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
+import {NextRequest, NextResponse} from 'next/server'
+import {randomUUID} from 'crypto'
 
 export async function POST(request: NextRequest) {
     const roomId = randomUUID()

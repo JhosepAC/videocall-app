@@ -1,18 +1,18 @@
 'use client'
 
-import { useEffect, useState, useTransition, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { uploadAvatar } from '@/lib/supabase/storage'
-import { completeProfile } from '../actions'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { User, AtSign, Camera, Loader2, CircleAlert, Upload, Trash2 } from 'lucide-react'
-import { useI18n } from '@/components/i18n/i18n-provider'
-import { useDominantColor } from '@/hooks/useDominantColor'
-import { getGradientFromColor } from '@/lib/utils'
+import {useEffect, useRef, useState, useTransition} from 'react'
+import {useRouter} from 'next/navigation'
+import {createClient} from '@/lib/supabase/client'
+import {uploadAvatar} from '@/lib/supabase/storage'
+import {completeProfile} from '../actions'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
+import {AtSign, Camera, CircleAlert, Loader2, Trash2, Upload, User} from 'lucide-react'
+import {useI18n} from '@/components/i18n/i18n-provider'
+import {useDominantColor} from '@/hooks/useDominantColor'
+import {getGradientFromColor} from '@/lib/utils'
 
 const ERROR_MAP: Record<string, string> = {
     not_authenticated: 'errors.not_authenticated',
@@ -28,7 +28,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_FILE_SIZE = 50 * 1024 * 1024
 
 export default function CompleteProfilePage() {
-    const { t } = useI18n()
+    const {t} = useI18n()
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [serverError, setServerError] = useState<string | null>(null)
@@ -45,7 +45,7 @@ export default function CompleteProfilePage() {
 
     useEffect(() => {
         const supabase = createClient()
-        supabase.auth.getUser().then(({ data: { user } }) => {
+        supabase.auth.getUser().then(({data: {user}}) => {
             if (!user) {
                 router.push('/login')
                 return
@@ -55,7 +55,7 @@ export default function CompleteProfilePage() {
                 .select('full_name, username, avatar_url')
                 .eq('id', user.id)
                 .single()
-                .then(({ data }) => {
+                .then(({data}) => {
                     if (data) {
                         setFullName(data.full_name || '')
                         setUsername(data.username || '')
@@ -119,7 +119,7 @@ export default function CompleteProfilePage() {
 
                 if (avatarFile) {
                     const supabase = createClient()
-                    const { data: { user } } = await supabase.auth.getUser()
+                    const {data: {user}} = await supabase.auth.getUser()
                     if (!user) {
                         setServerError('not_authenticated')
                         return
@@ -142,7 +142,7 @@ export default function CompleteProfilePage() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" />
+                <Loader2 className="w-8 h-8 animate-spin mb-4"/>
                 <p className="text-sm">{t('auth.complete_profile.loading')}</p>
             </div>
         )
@@ -166,13 +166,13 @@ export default function CompleteProfilePage() {
             <div className="bg-card border-border shadow-sm rounded-2xl overflow-hidden transition-all">
                 <div
                     className="h-28 transition-all duration-700"
-                    style={{ background: getGradientFromColor(dominantColor) }}
+                    style={{background: getGradientFromColor(dominantColor)}}
                 />
                 <div className="px-8 pb-6">
                     <div className="relative flex justify-between items-end -mt-12 mb-4">
                         <Avatar className="w-22 h-22 border-4 border-background shadow-md bg-muted">
                             {displayUrl && (
-                                <AvatarImage src={displayUrl} />
+                                <AvatarImage src={displayUrl}/>
                             )}
                             <AvatarFallback className="text-2xl text-muted-foreground">
                                 {initials}
@@ -196,7 +196,8 @@ export default function CompleteProfilePage() {
                         {t('auth.complete_profile.full_name_label')}
                     </Label>
                     <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <User
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                         <Input
                             id="full_name"
                             name="full_name"
@@ -219,7 +220,8 @@ export default function CompleteProfilePage() {
                         {t('auth.complete_profile.username_label')}
                     </Label>
                     <div className="relative">
-                        <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <AtSign
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                         <Input
                             id="username"
                             name="username"
@@ -259,7 +261,7 @@ export default function CompleteProfilePage() {
                             onClick={() => fileInputRef.current?.click()}
                             className="h-12 px-5 text-sm rounded-xl border-border/60 bg-overlay/10 hover:bg-overlay/20 transition-all"
                         >
-                            <Upload className="w-4 h-4 mr-2" />
+                            <Upload className="w-4 h-4 mr-2"/>
                             {displayUrl ? t('common.change_photo') : t('common.upload_photo')}
                         </Button>
                         {displayUrl && (
@@ -270,12 +272,12 @@ export default function CompleteProfilePage() {
                                 onClick={handleRemoveAvatar}
                                 className="h-12 px-4 text-sm rounded-xl border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10 transition-all"
                             >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4"/>
                             </Button>
                         )}
                         {!displayUrl && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Camera className="w-4 h-4" />
+                                <Camera className="w-4 h-4"/>
                                 <span>{t('auth.complete_profile.avatar_hint')}</span>
                             </div>
                         )}
@@ -287,7 +289,7 @@ export default function CompleteProfilePage() {
                         className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20"
                         role="alert"
                     >
-                        <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                        <CircleAlert className="w-4 h-4 mt-0.5 shrink-0"/>
                         <span>{t(ERROR_MAP[serverError] || serverError)}</span>
                     </div>
                 )}
@@ -299,7 +301,7 @@ export default function CompleteProfilePage() {
                 >
                     {isPending ? (
                         <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin"/>
                             <span>{t('auth.complete_profile.saving')}</span>
                         </>
                     ) : (

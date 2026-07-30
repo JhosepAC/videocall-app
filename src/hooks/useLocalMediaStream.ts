@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 
 export type StreamStatus = 'idle' | 'requesting' | 'ready' | 'error'
 
@@ -12,8 +12,8 @@ interface UseLocalMediaStreamReturn {
     isScreenSharing: boolean
     toggleAudio: () => boolean
     toggleVideo: () => boolean
-    startScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => Promise<void>
-    stopScreenShare: (replaceTrackCallback: (track: MediaStreamTrack) => void) => void
+    startScreenShare: (onEnded?: () => void) => Promise<MediaStreamTrack | null>
+    stopScreenShare: () => void
 }
 
 export function useLocalMediaStream(): UseLocalMediaStreamReturn {
@@ -26,7 +26,7 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
     const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
 
     const streamRef = useRef<MediaStream | null>(null)
-    const originalVideoTrackRef = useRef<MediaStreamTrack | null>(null)
+    const screenStreamRef = useRef<MediaStream | null>(null)
 
     useEffect(() => {
         let isMounted = true
@@ -36,7 +36,7 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                    audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true},
                 })
 
                 if (!isMounted) {
@@ -45,7 +45,6 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 }
 
                 streamRef.current = stream
-                originalVideoTrackRef.current = stream.getVideoTracks()[0] ?? null
                 setIsVideoStopped(!stream.getVideoTracks()[0])
                 setLocalStream(stream)
                 setStatus('ready')
@@ -55,8 +54,8 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                     upgradeTimeout = setTimeout(async () => {
                         try {
                             await videoTrack.applyConstraints({
-                                width: { ideal: 1280 },
-                                height: { ideal: 720 },
+                                width: {ideal: 1280},
+                                height: {ideal: 720},
                                 facingMode: 'user',
                             })
                         } catch {
@@ -69,7 +68,7 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 console.error('[MEDIA ERROR]', err)
 
                 try {
-                    const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true })
+                    const audioOnly = await navigator.mediaDevices.getUserMedia({audio: true})
                     streamRef.current = audioOnly
                     setLocalStream(audioOnly)
                     setIsVideoStopped(true)
@@ -90,6 +89,8 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
                 streamRef.current.getTracks().forEach((track) => track.stop())
                 streamRef.current = null
             }
+            screenStreamRef.current?.getTracks().forEach(track => track.stop())
+            screenStreamRef.current = null
         }
     }, [])
 
@@ -117,35 +118,36 @@ export function useLocalMediaStream(): UseLocalMediaStreamReturn {
             }
         }
         return isVideoStopped
-    }, [isVideoStopped, isScreenSharing])
+    }, [isVideoStopped])
 
-    const startScreenShare = async (replaceTrackCallback: (track: MediaStreamTrack) => void) => {
+    const stopScreenShare = useCallback(() => {
+        screenStreamRef.current?.getTracks().forEach(track => track.stop())
+        screenStreamRef.current = null
+        setScreenStream(null)
+        setIsScreenSharing(false)
+    }, [])
+
+    const startScreenShare = async (onEnded?: () => void) => {
         try {
-            const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({video: true})
             const screenTrack = displayStream.getVideoTracks()[0]
+            if (!screenTrack) {
+                displayStream.getTracks().forEach(track => track.stop())
+                return null
+            }
 
-            replaceTrackCallback(screenTrack)
+            screenStreamRef.current = displayStream
             setScreenStream(displayStream)
             setIsScreenSharing(true)
 
             screenTrack.onended = () => {
-                stopScreenShare(replaceTrackCallback)
+                stopScreenShare()
+                onEnded?.()
             }
-
+            return screenTrack
         } catch (err) {
             console.error("Error sharing screen", err)
-        }
-    }
-
-    const stopScreenShare = (replaceTrackCallback: (track: MediaStreamTrack) => void) => {
-        if (originalVideoTrackRef.current) {
-            replaceTrackCallback(originalVideoTrackRef.current)
-
-            if (screenStream) {
-                screenStream.getTracks().forEach(track => track.stop())
-                setScreenStream(null)
-            }
-            setIsScreenSharing(false)
+            return null
         }
     }
 

@@ -1,18 +1,53 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Camera, CameraOff, Mic, MicOff, AlertCircle, Loader2, PhoneOff, Users, Clock, Copy, Check, Share2, X, MonitorUp, StopCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, User, Hand, Sun, Palette, Contrast, Sparkles, Droplets, Thermometer, RotateCcw, SlidersHorizontal, SmilePlus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useI18n } from '@/components/i18n/i18n-provider'
-import { useLocalMediaStream } from '@/hooks/useLocalMediaStream'
-import { useVideoEnhancer, DEFAULT_ENHANCEMENT } from '@/hooks/useVideoEnhancer'
-import type { EnhancementConfig } from '@/hooks/useVideoEnhancer'
-import { useWebRTC, ParticipantInfo } from '@/hooks/useWebRTC'
-import { createClient } from '@/lib/supabase/client'
-import { getEmojiUrl, EMOJI_LIST } from '@/lib/emojis'
-import { useDominantColor } from '@/hooks/useDominantColor'
-import { getCircularGradientFromColor, getGradientFromColor } from '@/lib/utils'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import {useRouter} from 'next/navigation'
+import {
+    AlertCircle,
+    Camera,
+    CameraOff,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronUp,
+    Clock,
+    Contrast,
+    Copy,
+    Droplets,
+    Hand,
+    Loader2,
+    Mic,
+    MicOff,
+    MonitorUp,
+    Palette,
+    PhoneOff,
+    Pin,
+    RotateCcw,
+    Share2,
+    ShieldAlert,
+    SlidersHorizontal,
+    SmilePlus,
+    Sparkles,
+    StopCircle,
+    Sun,
+    Thermometer,
+    User,
+    Users,
+    X
+} from 'lucide-react'
+import {Button} from '@/components/ui/button'
+import {useI18n} from '@/components/i18n/i18n-provider'
+import {useLocalMediaStream} from '@/hooks/useLocalMediaStream'
+import type {EnhancementConfig} from '@/hooks/useVideoEnhancer'
+import {DEFAULT_ENHANCEMENT, useVideoEnhancer} from '@/hooks/useVideoEnhancer'
+import {ParticipantInfo, useWebRTC} from '@/hooks/useWebRTC'
+import {createClient} from '@/lib/supabase/client'
+import {EMOJI_LIST, getEmojiUrl} from '@/lib/emojis'
+import {useDominantColor} from '@/hooks/useDominantColor'
+import {getGradientFromColor} from '@/lib/utils'
+import {useHostRequests} from '@/hooks/useJoinRequests'
+import GuestLobby from './GuestLobby'
 
 const MAX_GRID_PAGE_SIZE = 9
 
@@ -20,7 +55,11 @@ interface RoomClientProps {
     roomId: string
 }
 
-const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; info: ParticipantInfo; className?: string }) => {
+const RemoteVideo = ({stream, info, className = ''}: {
+    stream: MediaStream;
+    info: ParticipantInfo;
+    className?: string
+}) => {
     const videoRef = useRef<HTMLVideoElement>(null)
     const isVideoPlaying = !info.isVideoMuted
 
@@ -35,7 +74,8 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
     const dominantColor = useDominantColor(info.avatarUrl || null)
 
     return (
-        <div className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
+        <div
+            className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
             <video
                 ref={videoRef}
                 autoPlay
@@ -44,8 +84,9 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
             />
 
             {!isVideoPlaying && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm text-muted-foreground z-10 transition-all duration-300"
-                    style={{ background: getGradientFromColor(dominantColor) }}>
+                <div
+                    className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm text-muted-foreground transition-all duration-300"
+                    style={{background: getGradientFromColor(dominantColor)}}>
                     {info.avatarUrl ? (
                         <img
                             src={info.avatarUrl}
@@ -53,14 +94,15 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
                             className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
                         />
                     ) : (
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl">
-                            <User className="w-12 h-12 md:w-16 md:h-16 text-foreground/60" />
+                        <div
+                            className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl">
+                            <User className="w-12 h-12 md:w-16 md:h-16 text-foreground/60"/>
                         </div>
                     )}
                 </div>
             )}
 
-            <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+            <div className="absolute bottom-3 left-3 flex items-center gap-2">
                 <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
                     <p className="text-xs font-semibold text-black leading-tight">{name}</p>
                     {username && (
@@ -69,12 +111,12 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
                 </div>
                 {info.isHandRaised && (
                     <div className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                        <Hand className="w-3 h-3" />
+                        <Hand className="w-3 h-3"/>
                     </div>
                 )}
                 {info.isAudioMuted && (
                     <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                        <MicOff className="w-3 h-3" />
+                        <MicOff className="w-3 h-3"/>
                     </div>
                 )}
             </div>
@@ -82,11 +124,69 @@ const RemoteVideo = ({ stream, info, className = '' }: { stream: MediaStream; in
     )
 }
 
-const ThumbnailFallback = ({ avatarUrl, name, imgSize, iconSize, iconCircleSize }: { avatarUrl?: string | null; name: string; imgSize: string; iconSize: string; iconCircleSize: string }) => {
+const ScreenShareTile = ({stream, participantName, isPinned, onTogglePin, canPin}: {
+    stream: MediaStream | null;
+    participantName: string;
+    isPinned: boolean;
+    onTogglePin?: () => void;
+    canPin?: boolean;
+}) => {
+    const videoRef = useRef<HTMLVideoElement>(null)
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream
+        }
+    }, [stream])
+    return (
+        <div
+            className="relative min-w-0 w-full h-full rounded-2xl overflow-hidden bg-black/80 shadow-lg ring-1 ring-white/10 group">
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-contain"
+            />
+            {!stream && (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-white/70">
+                    Connecting presentation…
+                </div>
+            )}
+            <div
+                className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 via-black/20 to-transparent px-3 pb-3 pt-8 pointer-events-none">
+                <span className="min-w-0 truncate text-xs font-medium text-white">{participantName}</span>
+                {isPinned && <span
+                    className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/80">Pinned</span>}
+            </div>
+            {canPin && onTogglePin && (
+                <button
+                    onClick={onTogglePin}
+                    aria-label={isPinned ? `Unpin ${participantName}'s screen` : `Pin ${participantName}'s screen`}
+                    className={`absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center backdrop-blur-md rounded-xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
+                        isPinned
+                            ? 'bg-brand/90 hover:bg-brand shadow-lg shadow-brand/30'
+                            : 'bg-black/60 hover:bg-white/20'
+                    }`}
+                    title={isPinned ? 'Unpin' : 'Pin'}
+                >
+                    <Pin className={`w-5 h-5 ${isPinned ? 'fill-current' : ''}`}/>
+                </button>
+            )}
+        </div>
+    )
+}
+
+const ThumbnailFallback = ({avatarUrl, name, imgSize, iconSize, iconCircleSize}: {
+    avatarUrl?: string | null;
+    name: string;
+    imgSize: string;
+    iconSize: string;
+    iconCircleSize: string
+}) => {
     const dominantColor = useDominantColor(avatarUrl || null)
     return (
         <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm transition-all duration-300"
-            style={{ background: getGradientFromColor(dominantColor) }}>
+             style={{background: getGradientFromColor(dominantColor)}}>
             {avatarUrl ? (
                 <img
                     src={avatarUrl}
@@ -94,15 +194,16 @@ const ThumbnailFallback = ({ avatarUrl, name, imgSize, iconSize, iconCircleSize 
                     className={`${imgSize} rounded-full object-cover ring-2 ring-white/20 shadow-2xl`}
                 />
             ) : (
-                <div className={`${iconCircleSize} rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl`}>
-                    <User className={`${iconSize} text-foreground/60`} />
+                <div
+                    className={`${iconCircleSize} rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl`}>
+                    <User className={`${iconSize} text-foreground/60`}/>
                 </div>
             )}
         </div>
     )
 }
 
-const SliderControl = ({ label, value, min, max, step, onChange, icon }: {
+const SliderControl = ({label, value, min, max, step, onChange, icon}: {
     label: string; value: number; min: number; max: number; step: number;
     onChange: (v: number) => void; icon?: React.ReactNode | string
 }) => {
@@ -118,7 +219,7 @@ const SliderControl = ({ label, value, min, max, step, onChange, icon }: {
                 </span>
             </div>
             <div className="relative h-1.5">
-                <div className="absolute inset-0 rounded-full bg-muted-foreground/15" />
+                <div className="absolute inset-0 rounded-full bg-muted-foreground/15"/>
                 <input
                     type="range"
                     min={min}
@@ -139,15 +240,15 @@ const SliderControl = ({ label, value, min, max, step, onChange, icon }: {
     )
 }
 
-export default function RoomClient({ roomId }: RoomClientProps) {
+export default function RoomClient({roomId}: RoomClientProps) {
     const router = useRouter()
     const {
         localStream,
         screenStream,
         status,
         errorMessage,
-        isAudioMuted,
-        isVideoStopped,
+        isAudioMuted: localIsAudioMuted,
+        isVideoStopped: localIsVideoStopped,
         isScreenSharing,
         toggleAudio,
         toggleVideo,
@@ -155,8 +256,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         stopScreenShare
     } = useLocalMediaStream()
 
-    const { t, locale } = useI18n()
-    const screenVideoRef = useRef<HTMLVideoElement>(null)
+    const {t, locale} = useI18n()
 
     const [copied, setCopied] = useState(false)
     const [now, setNow] = useState(new Date())
@@ -165,19 +265,31 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const [username, setUsername] = useState('')
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-    const [isHandRaised, setIsHandRaised] = useState(false)
+    const [localIsHandRaised, setLocalIsHandRaised] = useState(false)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isUrlCopied, setIsUrlCopied] = useState(false)
     const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
     const [gridPage, setGridPage] = useState(0)
-    const [screenAspectRatio, setScreenAspectRatio] = useState<number | null>(null)
-    const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({ ...DEFAULT_ENHANCEMENT })
+    const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({...DEFAULT_ENHANCEMENT})
     const [showEnhancePanel, setShowEnhancePanel] = useState(false)
-    const [localReactions, setLocalReactions] = useState<{ emoji: string; id: string; x: number; y: number; size: number }[]>([])
     const [showReactionPicker, setShowReactionPicker] = useState(false)
     const pickerRef = useRef<HTMLDivElement>(null)
-    const reactionYIndexRef = useRef(0)
-    const reactionLastXRef = useRef(0)
+    const screenShareRequestRef = useRef(false)
+
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+    const [profileLoaded, setProfileLoaded] = useState(false)
+    const [guestState, setGuestState] = useState<'idle' | 'approved'>('idle')
+    const [guestName, setGuestName] = useState('')
+    const [guestAvatar, setGuestAvatar] = useState<string | null>(null)
+    const [guestUserId] = useState(() => `guest-${crypto.randomUUID()}`)
+    const [pinnedShareId, setPinnedShareId] = useState<string | null>(null)
+
+    const localStreamRef = useRef<MediaStream | null>(null)
+    const participantCountRef = useRef(1)
+
+    const {requests, approveRequest, rejectRequest} = useHostRequests(
+        isAuthenticated === true ? roomId : null
+    )
 
     useEffect(() => {
         const id = setInterval(() => setNow(new Date()), 1000)
@@ -197,27 +309,68 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     useEffect(() => {
         const supabase = createClient()
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (!user) return
-            setUserId(user.id)
-            supabase
-                .from('profiles')
-                .select('full_name, username, avatar_url')
-                .eq('id', user.id)
-                .single()
-                .then(({ data }) => {
-                    if (data) {
-                        setFullName(data.full_name || '')
-                        setUsername(data.username || '')
-                        setAvatarUrl(data.avatar_url || null)
-                    }
-                })
+        supabase.auth.getUser().then(({data: {user}}) => {
+            if (user) {
+                setIsAuthenticated(true)
+                setUserId(user.id)
+                supabase
+                    .from('profiles')
+                    .select('full_name, username, avatar_url')
+                    .eq('id', user.id)
+                    .single()
+                    .then(({data}) => {
+                        if (data) {
+                            setFullName(data.full_name || '')
+                            setUsername(data.username || '')
+                            setAvatarUrl(data.avatar_url || null)
+                        }
+                        setProfileLoaded(true)
+                    }, () => setProfileLoaded(true))
+            } else {
+                setIsAuthenticated(false)
+                setProfileLoaded(true)
+            }
         })
+    }, [])
+
+    useEffect(() => {
+        let keepAliveInterval: ReturnType<typeof setInterval> | undefined
+
+        const handleVisibility = () => {
+            const stream = localStreamRef.current
+            const videoTrack = stream?.getVideoTracks()[0]
+            const count = participantCountRef.current
+
+            if (document.hidden) {
+                if (count <= 1 && videoTrack?.enabled) {
+                    videoTrack.enabled = false
+                } else if (count >= 2) {
+                    keepAliveInterval = setInterval(() => {
+                        navigator.mediaDevices.enumerateDevices().catch(() => {
+                        })
+                    }, 1_000)
+                }
+            } else {
+                if (keepAliveInterval) {
+                    clearInterval(keepAliveInterval)
+                    keepAliveInterval = undefined
+                }
+                if (videoTrack && !videoTrack.enabled) {
+                    videoTrack.enabled = true
+                }
+            }
+        }
+
+        document.addEventListener('visibilitychange', handleVisibility)
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibility)
+            if (keepAliveInterval) clearInterval(keepAliveInterval)
+        }
     }, [])
 
     const screenTrack = screenStream?.getVideoTracks()[0] ?? null
 
-    const { enhancedTrack } = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
+    const {enhancedTrack} = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
 
     const localDisplayStream = useMemo(() => {
         if (!localStream) return null
@@ -234,64 +387,128 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         }
     }, [localDisplayStream])
 
-    const userInfo = useMemo(() => ({
-        userId, fullName, username, avatarUrl,
-        isVideoMuted: isVideoStopped, isAudioMuted
-    }), [userId, fullName, username, avatarUrl, isVideoStopped, isAudioMuted])
+    const isGuestMode = isAuthenticated === false && guestState === 'approved'
 
-    const { remoteStreams, remoteParticipants, remoteReactions, endRoom, roomEnded, emitMediaState, emitHandState, emitReaction, replaceVideoTrack } = useWebRTC(
+    const localAvatarUrl = isGuestMode ? guestAvatar : avatarUrl
+
+    const userInfo = useMemo(() => ({
+        userId: isGuestMode ? guestUserId : userId,
+        fullName: isGuestMode ? guestName : (fullName || ''),
+        username: isGuestMode ? '' : username,
+        avatarUrl: isGuestMode ? guestAvatar : avatarUrl,
+        isVideoMuted: localIsVideoStopped, isAudioMuted: localIsAudioMuted,
+        isEnhanced: enhanceConfig.enabled,
+    }), [userId, fullName, username, avatarUrl, localIsVideoStopped, localIsAudioMuted, isGuestMode, guestName, guestUserId, guestAvatar, enhanceConfig.enabled])
+
+    const shouldConnect = (isAuthenticated === true && profileLoaded) || (isAuthenticated === false && guestState === 'approved')
+
+    const {
+        remoteStreams,
+        remoteScreenStreams,
+        remoteParticipants,
+        remoteReactions,
+        localParticipant,
+        activeScreenShareIds,
+        endRoom,
+        leaveRoom,
+        roomEnded,
+        emitMediaState,
+        emitHandState,
+        emitEnhancementState,
+        emitScreenShareState,
+        emitReaction,
+        replaceVideoTrack,
+        addScreenTrack,
+        removeScreenTrack,
+    } = useWebRTC(
         roomId,
-        localStream,
+        shouldConnect ? localStream : null,
         screenTrack,
         userInfo,
-        isHandRaised
+        localIsHandRaised,
+        shouldConnect
     )
 
     useEffect(() => {
-        if (enhancedTrack && enhanceConfig.enabled) {
-            replaceVideoTrack(enhancedTrack)
-        } else if (!enhanceConfig.enabled && localStream) {
-            const original = localStream.getVideoTracks()[0]
-            if (original) {
-                replaceVideoTrack(original)
-            }
-        }
+        localStreamRef.current = localStream
+        participantCountRef.current = 1 + Object.keys(remoteParticipants).length
+    })
+
+    // Shared presentation state always comes from the server snapshot.  Local
+    // tracks change immediately, but the UI reconciles to this state as soon
+    // as the authoritative acknowledgement arrives.
+    const isAudioMuted = localParticipant?.isAudioMuted ?? localIsAudioMuted
+    const isVideoStopped = localParticipant?.isVideoMuted ?? localIsVideoStopped
+    const isHandRaised = localParticipant?.isHandRaised ?? localIsHandRaised
+
+    useEffect(() => {
+        const outgoingTrack = enhanceConfig.enabled ? enhancedTrack : localStream?.getVideoTracks()[0]
+        if (outgoingTrack) replaceVideoTrack(outgoingTrack)
     }, [enhancedTrack, enhanceConfig.enabled, localStream, replaceVideoTrack])
 
     useEffect(() => {
-        if (screenVideoRef.current && screenStream) {
-            screenVideoRef.current.srcObject = screenStream
-        }
-        if (!screenStream) {
-            setScreenAspectRatio(null)
-        }
+        emitEnhancementState(enhanceConfig.enabled)
+    }, [enhanceConfig.enabled, emitEnhancementState])
 
-        const el = screenVideoRef.current
-        if (!el) return
-
-        const handleResize = () => {
-            if (el.videoWidth && el.videoHeight) {
-                setScreenAspectRatio(el.videoWidth / el.videoHeight)
-            }
+    const screenShareParticipants = useMemo(() => {
+        const result: { participant: ParticipantInfo; stream: MediaStream | null }[] = []
+        for (const pid of activeScreenShareIds) {
+            const p = Object.values(remoteParticipants).find(rp => rp.participantId === pid) ||
+                (localParticipant?.participantId === pid ? localParticipant : null)
+            if (!p) continue
+            const stream = p.participantId === localParticipant?.participantId
+                ? screenStream
+                : remoteScreenStreams[p.socketId] ?? null
+            result.push({participant: p, stream})
         }
+        return result
+    }, [remoteParticipants, activeScreenShareIds, localParticipant, screenStream, remoteScreenStreams])
 
-        el.addEventListener('resize', handleResize)
-        return () => el.removeEventListener('resize', handleResize)
-    }, [screenStream])
+    const isRoomScreenSharing = activeScreenShareIds.length > 0
+
+    // A pinned presentation is promoted to the first main slot.  The second
+    // slot is filled by the next active share, so two shares are always visible
+    // together and a selected share never disappears from the primary area.
+    const activePinnedShareId = pinnedShareId && activeScreenShareIds.includes(pinnedShareId)
+        ? pinnedShareId
+        : null
+
+    const mainScreenShares = useMemo(() => {
+        const ordered = activePinnedShareId
+            ? [
+                ...screenShareParticipants.filter(item => item.participant.participantId === activePinnedShareId),
+                ...screenShareParticipants.filter(item => item.participant.participantId !== activePinnedShareId),
+            ]
+            : screenShareParticipants
+        return ordered.slice(0, 2)
+    }, [screenShareParticipants, activePinnedShareId])
+
+    const additionalScreenShares = useMemo(() => {
+        const visibleIds = new Set(mainScreenShares.map(item => item.participant.participantId))
+        return screenShareParticipants.filter(item => !visibleIds.has(item.participant.participantId))
+    }, [screenShareParticipants, mainScreenShares])
+
+    useEffect(() => {
+        if (pinnedShareId && !activePinnedShareId) setPinnedShareId(null)
+    }, [pinnedShareId, activePinnedShareId])
+
+    useEffect(() => {
+        if (localParticipant?.isScreenSharing) screenShareRequestRef.current = false
+    }, [localParticipant?.isScreenSharing])
+
+    // Stop local screen share if the server no longer lists us as sharing
+    useEffect(() => {
+        if (!isScreenSharing || screenShareRequestRef.current ||
+            activeScreenShareIds.includes(localParticipant?.participantId ?? '')) return
+        stopScreenShare()
+        removeScreenTrack()
+    }, [isScreenSharing, activeScreenShareIds, localParticipant?.participantId, stopScreenShare, removeScreenTrack])
 
     useEffect(() => {
         if (roomEnded) {
             router.push('/dashboard')
         }
     }, [roomEnded, router])
-
-    useEffect(() => {
-        const total = 1 + Object.keys(remoteParticipants).length
-        const pages = Math.ceil(total / MAX_GRID_PAGE_SIZE)
-        if (gridPage >= pages) {
-            setGridPage(Math.max(0, pages - 1))
-        }
-    }, [remoteParticipants, gridPage])
 
     const handleToggleVideo = () => {
         const newState = toggleVideo()
@@ -303,11 +520,25 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         emitMediaState(isVideoStopped, newState)
     }
 
-    const handleToggleScreenShare = () => {
+    const handleToggleScreenShare = async () => {
         if (isScreenSharing) {
-            stopScreenShare(replaceVideoTrack)
+            screenShareRequestRef.current = false
+            stopScreenShare()
+            removeScreenTrack()
+            emitScreenShareState(false)
         } else {
-            startScreenShare(replaceVideoTrack)
+            screenShareRequestRef.current = true
+            const screenTrack = await startScreenShare(() => {
+                screenShareRequestRef.current = false
+                removeScreenTrack()
+                emitScreenShareState(false)
+            })
+            if (screenTrack) {
+                addScreenTrack(screenTrack)
+                emitScreenShareState(true)
+            } else {
+                screenShareRequestRef.current = false
+            }
         }
     }
 
@@ -319,43 +550,26 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     const handleToggleHand = () => {
         const newState = !isHandRaised
-        setIsHandRaised(newState)
+        setLocalIsHandRaised(newState)
         emitHandState(newState)
         if (newState && handAudioRef.current) {
             handAudioRef.current.currentTime = 0
-            handAudioRef.current.play().catch(() => {})
+            handAudioRef.current.play().catch(() => {
+            })
         }
     }
 
     const handleReact = (emoji: string) => {
-        const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        const minDist = 50
-        let x = Math.floor(Math.random() * 280) - 80
-        for (let i = 0; i < 20; i++) {
-            const candidate = Math.floor(Math.random() * 280) - 80
-            if (Math.abs(candidate - reactionLastXRef.current) >= minDist) {
-                x = candidate
-                break
-            }
-        }
-        reactionLastXRef.current = x
-        const yOffsets = [0, 30, 60, 90, 120, 150]
-        const yIndex = reactionYIndexRef.current
-        reactionYIndexRef.current = (yIndex + 1) % yOffsets.length
-        const y = yOffsets[yIndex]
-        const size = Math.random() < 0.2 ? Math.floor(Math.random() * 10) + 32 : 44
-        setLocalReactions(prev => [...prev, { emoji, id, x, y, size }])
         emitReaction(emoji)
-        setTimeout(() => {
-            setLocalReactions(prev => prev.filter(r => r.id !== id))
-        }, 4000)
     }
 
-    const allReactions = useMemo(() => {
-        const remote = remoteReactions.map(r => ({ ...r, isLocal: false as const }))
-        const local = localReactions.map(r => ({ emoji: r.emoji, id: r.id, x: r.x, y: r.y, size: r.size, socketId: 'local', isLocal: true as const }))
-        return [...remote, ...local].sort((a, b) => a.id.localeCompare(b.id))
-    }, [remoteReactions, localReactions])
+    const handleLeaveRoom = () => {
+        if (localParticipant?.isHost) endRoom()
+        else leaveRoom()
+        router.push('/dashboard')
+    }
+
+    const allReactions = remoteReactions
 
     function handleCopyRoomId() {
         navigator.clipboard.writeText(roomId)
@@ -371,26 +585,77 @@ export default function RoomClient({ roomId }: RoomClientProps) {
 
     function formatHeaderDate(d: Date): string {
         const localeStr = locale === 'es' ? 'es-ES' : 'en-US'
-        return d.toLocaleDateString(localeStr, { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' })
+        return d.toLocaleDateString(localeStr, {weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric'})
     }
 
     function formatHeaderTime(d: Date): string {
-        return d.toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+        return d.toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        })
+    }
+
+    if (isAuthenticated === null) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
+                <div className="relative mb-8">
+                    <div
+                        className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
+                        <Loader2 className="w-10 h-10 text-brand animate-spin"/>
+                    </div>
+                </div>
+                <h2 className="text-xl font-semibold mb-2">{t('room.loading_devices')}</h2>
+                <div className="flex gap-1.5 mt-4">
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{animationDelay: '0ms'}}/>
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
+                          style={{animationDelay: '150ms'}}/>
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
+                          style={{animationDelay: '300ms'}}/>
+                </div>
+            </div>
+        )
+    }
+
+    if (isAuthenticated === false && guestState === 'idle') {
+        return (
+            <GuestLobby
+                roomId={roomId}
+                localStream={localStream}
+                status={status}
+                errorMessage={errorMessage}
+                isVideoStopped={isVideoStopped}
+                isAudioMuted={isAudioMuted}
+                toggleVideo={toggleVideo}
+                toggleAudio={toggleAudio}
+                onApproved={(name, avatar) => {
+                    setGuestName(name)
+                    setGuestAvatar(avatar)
+                    setGuestState('approved')
+                }}
+                onRejected={() => {
+                    setGuestState('idle')
+                }}
+            />
+        )
     }
 
     if (status === 'requesting') {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
                 <div className="relative mb-8">
-                    <div className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
-                        <Loader2 className="w-10 h-10 text-brand animate-spin" />
+                    <div
+                        className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
+                        <Loader2 className="w-10 h-10 text-brand animate-spin"/>
                     </div>
                 </div>
                 <h2 className="text-xl font-semibold mb-2">{t('room.loading_devices')}</h2>
                 <div className="flex gap-1.5 mt-4">
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{animationDelay: '0ms'}}/>
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
+                          style={{animationDelay: '150ms'}}/>
+                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
+                          style={{animationDelay: '300ms'}}/>
                 </div>
             </div>
         )
@@ -400,8 +665,9 @@ export default function RoomClient({ roomId }: RoomClientProps) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
                 <div className="flex flex-col items-center max-w-sm text-center space-y-6">
-                    <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/20">
-                        <AlertCircle className="w-8 h-8 text-destructive" />
+                    <div
+                        className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/20">
+                        <AlertCircle className="w-8 h-8 text-destructive"/>
                     </div>
                     <div className="space-y-2">
                         <h2 className="text-xl font-semibold">{t('room.hardware_error')}</h2>
@@ -415,31 +681,36 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     const totalParticipants = 1 + Object.keys(remoteParticipants).length
 
     const getGridDimensions = (count: number) => {
-        if (count <= 1) return { cols: 1, rows: 1 }
-        if (count <= 2) return { cols: 2, rows: 1 }
-        if (count <= 3) return { cols: 3, rows: 1 }
-        if (count <= 4) return { cols: 2, rows: 2 }
-        if (count <= 6) return { cols: 3, rows: 2 }
-        return { cols: 3, rows: 3 }
+        if (count <= 1) return {cols: 1, rows: 1}
+        if (count <= 2) return {cols: 2, rows: 1}
+        if (count <= 3) return {cols: 3, rows: 1}
+        if (count <= 4) return {cols: 2, rows: 2}
+        if (count <= 6) return {cols: 3, rows: 2}
+        return {cols: 3, rows: 3}
     }
 
     const allParticipants: { id: string; type: 'local' | 'remote'; stream?: MediaStream; info?: ParticipantInfo }[] = [
-        { id: 'local', type: 'local' },
+        {id: 'local', type: 'local'},
         ...Object.entries(remoteStreams)
             .filter(([peerId]) => remoteParticipants[peerId])
-            .map(([peerId, stream]) => ({ id: peerId, type: 'remote' as const, stream, info: remoteParticipants[peerId] }))
+            .map(([peerId, stream]) => ({
+                id: peerId,
+                type: 'remote' as const,
+                stream,
+                info: remoteParticipants[peerId]
+            }))
     ]
 
     const totalGridPages = Math.ceil(allParticipants.length / MAX_GRID_PAGE_SIZE)
     const safeGridPage = Math.min(gridPage, Math.max(0, totalGridPages - 1))
     const startIdx = safeGridPage * MAX_GRID_PAGE_SIZE
     const pageParticipants = allParticipants.slice(startIdx, startIdx + MAX_GRID_PAGE_SIZE)
-    const { cols, rows } = getGridDimensions(pageParticipants.length)
+    const {cols, rows} = getGridDimensions(pageParticipants.length)
 
-    const displayName = fullName || t('room.you')
-    const displayUsername = username ? `@${username}` : ''
+    const displayName = isGuestMode ? guestName : (fullName || t('room.you'))
+    const displayUsername = isGuestMode ? '' : (username ? `@${username}` : '')
 
-    const isRightPanelVisible = isScreenSharing
+    const isRightPanelVisible = isRoomScreenSharing
         ? (!isPeopleCollapsed || isSidebarOpen || showEnhancePanel)
         : (isSidebarOpen || showEnhancePanel)
 
@@ -448,7 +719,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
             {!isHorizontal && (
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/40">
                     <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
+                        <Users className="w-3.5 h-3.5"/>
                         {t('room.participants')} ({Object.keys(remoteParticipants).length + 1})
                     </span>
                     <button
@@ -456,14 +727,16 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                         className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
                     >
                         {t('room.hide_people')}
-                        <ChevronDown className="w-3.5 h-3.5" />
+                        <ChevronDown className="w-3.5 h-3.5"/>
                     </button>
                 </div>
             )}
-            <div className={isHorizontal ? 'flex-1 flex items-center justify-center gap-3 px-3 overflow-hidden' : 'overflow-y-auto p-3 space-y-3'}>
+            <div
+                className={isHorizontal ? 'flex-1 flex items-center justify-center gap-3 px-3 overflow-hidden' : 'overflow-y-auto p-3 space-y-3'}>
                 {isHorizontal ? (
                     <>
-                        <div className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
+                        <div
+                            className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
                             <video
                                 autoPlay playsInline muted
                                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
@@ -472,26 +745,28 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 ref={setLocalVideoRef}
                             />
                             {isVideoStopped && (
-                                <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-18 h-18" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
+                                <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName} imgSize="w-18 h-18"
+                                                   iconSize="w-6 h-6" iconCircleSize="w-12 h-12"/>
                             )}
                             <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
-                                <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
+                                <span
+                                    className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
                                     {displayName}
                                 </span>
                                 <div className="flex items-center gap-1">
                                     {isHandRaised && (
                                         <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                            <Hand className="w-3 h-3" />
+                                            <Hand className="w-3 h-3"/>
                                         </span>
                                     )}
                                     {isAudioMuted && (
                                         <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                            <MicOff className="w-3 h-3" />
+                                            <MicOff className="w-3 h-3"/>
                                         </span>
                                     )}
                                     {isScreenSharing && (
                                         <span className="bg-brand/80 p-0.5 rounded text-white">
-                                            <MonitorUp className="w-3 h-3" />
+                                            <MonitorUp className="w-3 h-3"/>
                                         </span>
                                     )}
                                 </div>
@@ -504,28 +779,35 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                             const remoteName = info.fullName || t('room.participant')
                             const isVideoPlaying = !info.isVideoMuted
                             return (
-                                <div key={peerId} className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
+                                <div key={peerId}
+                                     className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
                                     <video
                                         autoPlay playsInline
                                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
-                                        ref={el => { if (el) el.srcObject = stream }}
+                                        ref={el => {
+                                            if (el) el.srcObject = stream
+                                        }}
                                     />
                                     {!isVideoPlaying && (
-                                        <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-12 h-12" iconSize="w-6 h-6" iconCircleSize="w-12 h-12" />
+                                        <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName}
+                                                           imgSize="w-12 h-12" iconSize="w-6 h-6"
+                                                           iconCircleSize="w-12 h-12"/>
                                     )}
-                                    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
-                                        <span className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
+                                    <div
+                                        className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
+                                        <span
+                                            className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
                                             {remoteName}
                                         </span>
                                         <div className="flex items-center gap-1">
                                             {info.isHandRaised && (
                                                 <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                                    <Hand className="w-3 h-3" />
+                                                    <Hand className="w-3 h-3"/>
                                                 </span>
                                             )}
                                             {info.isAudioMuted && (
                                                 <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                                    <MicOff className="w-3 h-3" />
+                                                    <MicOff className="w-3 h-3"/>
                                                 </span>
                                             )}
                                         </div>
@@ -539,13 +821,14 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                             className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card/80 hover:bg-card border border-border/40 rounded-lg px-3 py-1.5 transition-colors"
                         >
                             {t('room.hide_people')}
-                            <ChevronDown className="w-3.5 h-3.5" />
+                            <ChevronDown className="w-3.5 h-3.5"/>
                         </button>
                     </>
                 ) : (
                     <>
-                        <div className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
-                            <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                        <div
+                            className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
+                            <div className="relative" style={{paddingBottom: '56.25%'}}>
                                 <video
                                     autoPlay
                                     playsInline
@@ -556,27 +839,25 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     ref={setLocalVideoRef}
                                 />
                                 {isVideoStopped && (
-                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-22 h-22" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
+                                    <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName} imgSize="w-22 h-22"
+                                                       iconSize="w-5 h-5" iconCircleSize="w-10 h-10"/>
                                 )}
                             </div>
-                            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
-                                <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
+                            <div
+                                className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
+                                <span
+                                    className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
                                     {displayName}
                                 </span>
                                 <div className="flex items-center gap-1">
                                     {isHandRaised && (
                                         <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                            <Hand className="w-3 h-3" />
+                                            <Hand className="w-3 h-3"/>
                                         </span>
                                     )}
                                     {isAudioMuted && (
                                         <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                            <MicOff className="w-3 h-3" />
-                                        </span>
-                                    )}
-                                    {isScreenSharing && (
-                                        <span className="bg-brand/80 p-0.5 rounded text-white">
-                                            <MonitorUp className="w-3 h-3" />
+                                            <MicOff className="w-3 h-3"/>
                                         </span>
                                     )}
                                 </div>
@@ -589,31 +870,38 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                             const remoteName = info.fullName || t('room.participant')
                             const isVideoPlaying = !info.isVideoMuted
                             return (
-                                <div key={peerId} className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
-                                    <div className="relative" style={{ paddingBottom: '56.25%' }}>
+                                <div key={peerId}
+                                     className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
+                                    <div className="relative" style={{paddingBottom: '56.25%'}}>
                                         <video
                                             autoPlay
                                             playsInline
                                             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
-                                            ref={el => { if (el) el.srcObject = stream }}
+                                            ref={el => {
+                                                if (el) el.srcObject = stream
+                                            }}
                                         />
                                         {!isVideoPlaying && (
-                                            <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName} imgSize="w-10 h-10" iconSize="w-5 h-5" iconCircleSize="w-10 h-10" />
+                                            <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName}
+                                                               imgSize="w-10 h-10" iconSize="w-5 h-5"
+                                                               iconCircleSize="w-10 h-10"/>
                                         )}
                                     </div>
-                                    <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
-                                        <span className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
+                                    <div
+                                        className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
+                                        <span
+                                            className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
                                             {remoteName}
                                         </span>
                                         <div className="flex items-center gap-1">
                                             {info.isHandRaised && (
                                                 <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                                    <Hand className="w-3 h-3" />
+                                                    <Hand className="w-3 h-3"/>
                                                 </span>
                                             )}
                                             {info.isAudioMuted && (
                                                 <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                                    <MicOff className="w-3 h-3" />
+                                                    <MicOff className="w-3 h-3"/>
                                                 </span>
                                             )}
                                         </div>
@@ -630,59 +918,98 @@ export default function RoomClient({ roomId }: RoomClientProps) {
     return (
         <div className="flex flex-col h-screen bg-background">
 
-            <header className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-b border-border/40 h-12 z-30">
-                <div className="flex items-center gap-3 px-4 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5" />
+            <header
+                className="shrink-0 flex items-center justify-between bg-background/80 backdrop-blur-xl border-b border-border/40 h-12 z-30 px-4">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5"/>
                     <span className="tabular-nums">{formatHeaderDate(now)} - {formatHeaderTime(now)}</span>
-                    <span className="w-px h-3 bg-border" />
+                    <span className="w-px h-3 bg-border"/>
                     <button
                         onClick={handleCopyRoomId}
                         className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer font-mono tracking-wider"
                     >
                         {roomId}
-                        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                        {copied ? <Check className="w-3 h-3 text-green-500"/> : <Copy className="w-3 h-3"/>}
                     </button>
-                    <span className="w-px h-3 bg-border" />
+                    <span className="w-px h-3 bg-border"/>
                     <span className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
+                        <Users className="w-3.5 h-3.5"/>
                         {totalParticipants}
                     </span>
                 </div>
+                {isRoomScreenSharing && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <MonitorUp className="w-3.5 h-3.5 text-brand"/>
+                        <span>
+                            {screenShareParticipants.map(p => p.participant.fullName || t('room.participant')).join(', ')} · {t('room.sharing_screen')}
+                        </span>
+                    </div>
+                )}
             </header>
 
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="flex-1 flex min-h-0">
                         <main className="flex-1 flex flex-col overflow-hidden">
-                            {isScreenSharing ? (
-                                <div className={`${isSidebarOpen && !isPeopleCollapsed ? 'flex-[8]' : 'flex-1'} min-h-0 flex items-center justify-center p-4`}>
-                                    <div
-                                        className="relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 max-w-full max-h-full"
-                                        style={screenAspectRatio ? { aspectRatio: `${screenAspectRatio}` } : undefined}
-                                    >
-                                        <video
-                                            ref={screenVideoRef}
-                                            autoPlay
-                                            playsInline
-                                            muted
-                                            className="w-full h-full object-contain transition-opacity duration-300 opacity-100"
-                                            onLoadedMetadata={(e) => {
-                                                const v = e.currentTarget
-                                                if (v.videoWidth && v.videoHeight) {
-                                                    setScreenAspectRatio(v.videoWidth / v.videoHeight)
-                                                }
-                                            }}
-                                        />
-                                        <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
-                                            <div className="bg-brand/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md text-xs font-medium text-white flex items-center gap-1.5">
-                                                <MonitorUp className="w-4 h-4" />
-                                                {t('room.sharing_screen')}
-                                            </div>
+                            {isRoomScreenSharing ? (
+                                <div className="flex-1 min-h-0 flex flex-col p-4 gap-3">
+                                    {mainScreenShares.length > 0 && (
+                                        <div
+                                            className={`flex-1 min-h-0 grid gap-3 ${mainScreenShares.length === 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                                            {mainScreenShares.map(({participant, stream}) => (
+                                                <ScreenShareTile
+                                                    key={participant.participantId}
+                                                    stream={stream}
+                                                    participantName={participant.fullName || t('room.participant')}
+                                                    isPinned={activePinnedShareId === participant.participantId}
+                                                    onTogglePin={() => setPinnedShareId(current => current === participant.participantId ? null : participant.participantId)}
+                                                    canPin={screenShareParticipants.length > 1}
+                                                />
+                                            ))}
                                         </div>
-                                    </div>
+                                    )}
+                                    {additionalScreenShares.length > 0 && (
+                                        <div className="shrink-0 flex gap-2 overflow-x-auto pb-1 px-1"
+                                             aria-label="Other shared screens">
+                                            {additionalScreenShares.map(({participant, stream}) => {
+                                                const isPinned = activePinnedShareId === participant.participantId
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={participant.participantId}
+                                                        className="relative h-20 aspect-video shrink-0 rounded-xl overflow-hidden cursor-pointer bg-black/80 ring-1 ring-white/10 transition-all duration-200 hover:ring-brand/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand group"
+                                                        onClick={() => setPinnedShareId(current => current === participant.participantId ? null : participant.participantId)}
+                                                        aria-label={`Pin ${participant.fullName || t('room.participant')}'s screen`}
+                                                        title="Pin"
+                                                    >
+                                                        <video
+                                                            autoPlay playsInline muted
+                                                            className="w-full h-full object-contain"
+                                                            ref={el => {
+                                                                if (el) el.srcObject = stream
+                                                            }}
+                                                        />
+                                                        <div
+                                                            className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
+                                                            <span className="text-[10px] text-white truncate block">
+                                                                {participant.fullName || t('room.participant')}
+                                                            </span>
+                                                        </div>
+                                                        {isPinned && (
+                                                            <div
+                                                                className="absolute top-1 right-1 bg-brand/90 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                                                PIN
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center p-3 md:p-4 overflow-hidden">
+                                <div
+                                    className="flex-1 flex flex-col items-center justify-center p-3 md:p-4 overflow-hidden">
                                     <div
                                         className="w-full h-full max-w-[1600px] grid gap-3 md:gap-4 place-items-center flex-1 min-h-0"
                                         style={{
@@ -693,7 +1020,8 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         {pageParticipants.map((p, idx) => {
                                             const centerLast = pageParticipants.length === 3 && cols === 2 && rows === 2 && idx === 2
                                             return p.type === 'local' ? (
-                                                <div key="local" className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 ${centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}`}>
+                                                <div key="local"
+                                                     className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 ${centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}`}>
                                                     <video
                                                         autoPlay
                                                         playsInline
@@ -705,30 +1033,38 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                     />
 
                                                     {isVideoStopped && (
-                                                    <ThumbnailFallback avatarUrl={avatarUrl} name={displayName} imgSize="w-32 h-32 md:w-75 md:h-75" iconSize="w-12 h-12 md:w-16 md:h-16" iconCircleSize="w-24 h-24 md:w-32 md:h-32" />
+                                                        <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName}
+                                                                           imgSize="w-32 h-32 md:w-75 md:h-75"
+                                                                           iconSize="w-12 h-12 md:w-16 md:h-16"
+                                                                           iconCircleSize="w-24 h-24 md:w-32 md:h-32"/>
                                                     )}
 
-                                                    <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
-                                                        <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
+                                                    <div
+                                                        className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+                                                        <div
+                                                            className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
                                                             <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
                                                             {displayUsername && (
                                                                 <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
                                                             )}
                                                         </div>
                                                         {isHandRaised && (
-                                                            <div className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                                                                <Hand className="w-3 h-3" />
+                                                            <div
+                                                                className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                                                                <Hand className="w-3 h-3"/>
                                                             </div>
                                                         )}
                                                         {isAudioMuted && (
-                                                            <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                                                                <MicOff className="w-3 h-3" />
+                                                            <div
+                                                                className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
+                                                                <MicOff className="w-3 h-3"/>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <RemoteVideo key={p.id} stream={p.stream!} info={p.info!} className={centerLast ? 'col-span-2 justify-self-center w-1/2' : ''} />
+                                                <RemoteVideo key={p.id} stream={p.stream!} info={p.info!}
+                                                             className={centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}/>
                                             )
                                         })}
                                     </div>
@@ -739,7 +1075,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                 disabled={safeGridPage === 0}
                                                 className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
                                             >
-                                                <ChevronLeft className="w-4 h-4" />
+                                                <ChevronLeft className="w-4 h-4"/>
                                             </button>
                                             <span className="text-xs font-medium text-muted-foreground tabular-nums">
                                                 {safeGridPage + 1} / {totalGridPages}
@@ -749,107 +1085,170 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                 disabled={safeGridPage === totalGridPages - 1}
                                                 className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
                                             >
-                                                <ChevronRight className="w-4 h-4" />
+                                                <ChevronRight className="w-4 h-4"/>
                                             </button>
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {isScreenSharing && isPeopleCollapsed && (
+                            {isRoomScreenSharing && isPeopleCollapsed && (
                                 <div className="shrink-0 flex justify-center pb-3">
                                     <button
                                         onClick={() => setIsPeopleCollapsed(false)}
                                         className="flex items-center gap-2 bg-card/80 backdrop-blur-xl border border-border/40 hover:bg-card transition-all duration-200 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-lg hover:shadow-xl active:scale-95"
                                     >
-                                        <ChevronUp className="w-4 h-4" />
-                                        <Users className="w-4 h-4" />
+                                        <ChevronUp className="w-4 h-4"/>
+                                        <Users className="w-4 h-4"/>
                                         {t('room.show_people')} ({Object.keys(remoteParticipants).length + 1})
                                     </button>
                                 </div>
                             )}
 
-                            {isScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[2] min-h-0', true)}
+                            {isRoomScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[0.3] min-h-0', true)}
                         </main>
 
-                        <div className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isRightPanelVisible ? 'w-80' : 'w-0'}`}>
+                        <div
+                            className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isRightPanelVisible ? 'w-80' : 'w-0'}`}>
                             <div className="h-full p-2">
-                                <aside className="h-full bg-card border border-border/60 rounded-2xl shadow-lg flex flex-col overflow-hidden">
+                                <aside
+                                    className="h-full bg-card border border-border/60 rounded-2xl shadow-lg flex flex-col overflow-hidden">
 
                                     {showEnhancePanel && (
                                         <div className="flex flex-col overflow-hidden flex-1 min-h-0">
-                                            <div className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
-                                                <span className="text-sm font-medium text-foreground/80 flex items-center gap-2.5">
-                                                    <Palette className="w-4 h-4 text-foreground/50" />
+                                            <div
+                                                className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
+                                                <span
+                                                    className="text-sm font-medium text-foreground/80 flex items-center gap-2.5">
+                                                    <Palette className="w-4 h-4 text-foreground/50"/>
                                                     {t('room.enhance_title')}
                                                 </span>
                                                 <div className="flex items-center gap-3">
                                                     <button
-                                                        onClick={() => setEnhanceConfig(c => ({ ...c, enabled: !c.enabled }))}
+                                                        onClick={() => setEnhanceConfig(c => ({
+                                                            ...c,
+                                                            enabled: !c.enabled
+                                                        }))}
                                                         className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.enabled ? 'bg-brand' : 'bg-muted-foreground/20'}`}
                                                     >
-                                                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.enabled ? 'translate-x-[1.125rem]' : ''}`} />
+                                                        <span
+                                                            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.enabled ? 'translate-x-[1.125rem]' : ''}`}/>
                                                     </button>
-                                                    <Button variant="ghost" size="icon" onClick={() => setShowEnhancePanel(false)} className="rounded-lg w-7 h-7 text-muted-foreground/40 hover:text-foreground">
-                                                        <X className="w-3.5 h-3.5" />
+                                                    <Button variant="ghost" size="icon"
+                                                            onClick={() => setShowEnhancePanel(false)}
+                                                            className="rounded-lg w-7 h-7 text-muted-foreground/40 hover:text-foreground">
+                                                        <X className="w-3.5 h-3.5"/>
                                                     </Button>
                                                 </div>
                                             </div>
 
                                             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
                                                 <div className="space-y-5">
-                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_wb')}</span>
+                                                    <span
+                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_wb')}</span>
                                                     <div className="space-y-5">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-sm text-foreground/60 flex items-center gap-2.5">
-                                                                <Thermometer className="w-4 h-4 text-foreground/35" />
+                                                            <span
+                                                                className="text-sm text-foreground/60 flex items-center gap-2.5">
+                                                                <Thermometer className="w-4 h-4 text-foreground/35"/>
                                                                 {t('room.enhance_awb_auto')}
                                                             </span>
                                                             <button
-                                                                onClick={() => setEnhanceConfig(c => ({ ...c, autoWhiteBalance: !c.autoWhiteBalance }))}
+                                                                onClick={() => setEnhanceConfig(c => ({
+                                                                    ...c,
+                                                                    autoWhiteBalance: !c.autoWhiteBalance
+                                                                }))}
                                                                 className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'bg-brand' : 'bg-muted-foreground/20'}`}
                                                             >
-                                                                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'translate-x-[1.125rem]' : ''}`} />
+                                                                <span
+                                                                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'translate-x-[1.125rem]' : ''}`}/>
                                                             </button>
                                                         </div>
                                                         {!enhanceConfig.autoWhiteBalance && (
-                                                            <SliderControl label={t('room.enhance_wb')} value={enhanceConfig.whiteBalance} min={-1} max={1} step={0.05}
-                                                                onChange={v => setEnhanceConfig(c => ({ ...c, whiteBalance: v }))}
-                                                                icon={<Thermometer className="w-4 h-4 text-foreground/35" />} />
+                                                            <SliderControl label={t('room.enhance_wb')}
+                                                                           value={enhanceConfig.whiteBalance} min={-1}
+                                                                           max={1} step={0.05}
+                                                                           onChange={v => setEnhanceConfig(c => ({
+                                                                               ...c,
+                                                                               whiteBalance: v
+                                                                           }))}
+                                                                           icon={<Thermometer
+                                                                               className="w-4 h-4 text-foreground/35"/>}/>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 <div className="space-y-5">
-                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_title')}</span>
+                                                    <span
+                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_title')}</span>
                                                     <div className="space-y-5">
-                                                        <SliderControl label={t('room.enhance_brightness')} value={enhanceConfig.brightness} min={-0.5} max={0.5} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, brightness: v }))} icon={<Sun className="w-4 h-4 text-foreground/35" />} />
-                                                        <SliderControl label={t('room.enhance_contrast')} value={enhanceConfig.contrast} min={0.5} max={2} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, contrast: v }))} icon={<Contrast className="w-4 h-4 text-foreground/35" />} />
-                                                        <SliderControl label={t('room.enhance_gamma')} value={enhanceConfig.gamma} min={0.5} max={2.5} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, gamma: v }))} icon={<SlidersHorizontal className="w-4 h-4 text-foreground/35" />} />
-                                                        <SliderControl label={t('room.enhance_saturation')} value={enhanceConfig.saturation} min={0} max={2} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, saturation: v }))} icon={<Palette className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_brightness')}
+                                                                       value={enhanceConfig.brightness} min={-0.5}
+                                                                       max={0.5} step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           brightness: v
+                                                                       }))} icon={<Sun
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
+                                                        <SliderControl label={t('room.enhance_contrast')}
+                                                                       value={enhanceConfig.contrast} min={0.5} max={2}
+                                                                       step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           contrast: v
+                                                                       }))} icon={<Contrast
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
+                                                        <SliderControl label={t('room.enhance_gamma')}
+                                                                       value={enhanceConfig.gamma} min={0.5} max={2.5}
+                                                                       step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           gamma: v
+                                                                       }))} icon={<SlidersHorizontal
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
+                                                        <SliderControl label={t('room.enhance_saturation')}
+                                                                       value={enhanceConfig.saturation} min={0} max={2}
+                                                                       step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           saturation: v
+                                                                       }))} icon={<Palette
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
                                                     </div>
                                                 </div>
 
                                                 <div className="space-y-5">
-                                                    <span className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">Detalles</span>
+                                                    <span
+                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">Detalles</span>
                                                     <div className="space-y-5">
-                                                        <SliderControl label={t('room.enhance_sharpness')} value={enhanceConfig.sharpness} min={0} max={1.5} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, sharpness: v }))} icon={<Sparkles className="w-4 h-4 text-foreground/35" />} />
-                                                        <SliderControl label={t('room.enhance_denoise')} value={enhanceConfig.denoise} min={0} max={1} step={0.05}
-                                                            onChange={v => setEnhanceConfig(c => ({ ...c, denoise: v }))} icon={<Droplets className="w-4 h-4 text-foreground/35" />} />
+                                                        <SliderControl label={t('room.enhance_sharpness')}
+                                                                       value={enhanceConfig.sharpness} min={0} max={1.5}
+                                                                       step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           sharpness: v
+                                                                       }))} icon={<Sparkles
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
+                                                        <SliderControl label={t('room.enhance_denoise')}
+                                                                       value={enhanceConfig.denoise} min={0} max={1}
+                                                                       step={0.05}
+                                                                       onChange={v => setEnhanceConfig(c => ({
+                                                                           ...c,
+                                                                           denoise: v
+                                                                       }))} icon={<Droplets
+                                                            className="w-4 h-4 text-foreground/35"/>}/>
                                                     </div>
                                                 </div>
 
                                                 <div className="pt-1">
                                                     <button
-                                                        onClick={() => setEnhanceConfig({ ...DEFAULT_ENHANCEMENT, enabled: enhanceConfig.enabled })}
+                                                        onClick={() => setEnhanceConfig({
+                                                            ...DEFAULT_ENHANCEMENT,
+                                                            enabled: enhanceConfig.enabled
+                                                        })}
                                                         className="flex items-center gap-1.5 text-xs text-foreground/30 hover:text-foreground/60 transition-colors"
                                                     >
-                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                        <RotateCcw className="w-3.5 h-3.5"/>
                                                         {t('room.enhance_reset')}
                                                     </button>
                                                 </div>
@@ -857,35 +1256,43 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                         </div>
                                     )}
 
-                                    <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'flex-1 min-h-0' : 'h-0'}`}>
-                                        <div className="flex items-center justify-between p-4 border-b border-border/40 shrink-0">
+                                    <div
+                                        className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'flex-1 min-h-0' : 'h-0'}`}>
+                                        <div
+                                            className="flex items-center justify-between p-4 border-b border-border/40 shrink-0">
                                             <h3 className="font-semibold flex items-center gap-2">
-                                                <Users className="w-4 h-4 text-brand" />
+                                                <Users className="w-4 h-4 text-brand"/>
                                                 {t('room.participants')} ({totalParticipants})
                                             </h3>
-                                            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="rounded-full w-8 h-8 shrink-0">
-                                                <X className="w-4 h-4" />
+                                            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)}
+                                                    className="rounded-full w-8 h-8 shrink-0">
+                                                <X className="w-4 h-4"/>
                                             </Button>
                                         </div>
 
                                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                            <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border border-border/50">
-                                                <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
-                                                    {avatarUrl ? (
-                                                        <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                                            <div
+                                                className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border border-border/50">
+                                                <div
+                                                    className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
+                                                    {localAvatarUrl ? (
+                                                        <img src={localAvatarUrl} alt={displayName}
+                                                             className="w-full h-full object-cover"/>
                                                     ) : (
-                                                        <User className="w-5 h-5 text-brand" />
+                                                        <User className="w-5 h-5 text-brand"/>
                                                     )}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-medium truncate">
                                                         {displayName}
-                                                        <span className="text-[10px] bg-brand/20 text-brand px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">{t('room.you')}</span>
+                                                        <span
+                                                            className="text-[10px] bg-brand/20 text-brand px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">{t('room.you')}</span>
                                                     </p>
-                                                    {displayUsername && <p className="text-xs text-muted-foreground truncate">{displayUsername}</p>}
+                                                    {displayUsername &&
+                                                        <p className="text-xs text-muted-foreground truncate">{displayUsername}</p>}
                                                 </div>
-                                                {isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0" />}
-                                                {isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
+                                                {isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0"/>}
+                                                {isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0"/>}
                                             </div>
 
                                             {Object.values(remoteParticipants).map((info) => {
@@ -893,22 +1300,77 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                 const remoteUsername = info.username ? `@${info.username}` : ''
                                                 return (
                                                     <div key={info.socketId} className="flex items-center gap-3 p-2">
-                                                        <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
+                                                        <div
+                                                            className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
                                                             {info.avatarUrl ? (
-                                                                <img src={info.avatarUrl} alt={remoteName} className="w-full h-full object-cover" />
+                                                                <img src={info.avatarUrl} alt={remoteName}
+                                                                     className="w-full h-full object-cover"/>
                                                             ) : (
-                                                                <User className="w-5 h-5 text-brand" />
+                                                                <User className="w-5 h-5 text-brand"/>
                                                             )}
                                                         </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-medium truncate">{remoteName}</p>
-                                                        {remoteUsername && <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-sm font-medium truncate">{remoteName}</p>
+                                                            {remoteUsername &&
+                                                                <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
+                                                        </div>
+                                                        {info.isHandRaised &&
+                                                            <Hand className="w-4 h-4 text-amber-500 shrink-0"/>}
+                                                        {info.isAudioMuted &&
+                                                            <MicOff className="w-4 h-4 text-red-500 shrink-0"/>}
                                                     </div>
-                                                    {info.isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0" />}
-                                                    {info.isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0" />}
-                                                </div>
                                                 )
                                             })}
+
+                                            {requests.length > 0 && (
+                                                <div className="pt-4 space-y-3">
+                                                    <div className="flex items-center gap-2 px-2">
+                                                        <ShieldAlert className="w-4 h-4 text-amber-500"/>
+                                                        <span
+                                                            className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
+                                                            {t('room.join_requests')}
+                                                        </span>
+                                                    </div>
+                                                    {requests.map((req) => (
+                                                        <div key={req.id}
+                                                             className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 font-semibold overflow-hidden shrink-0">
+                                                                    <span
+                                                                        className="text-sm">{req.guest_name.slice(0, 2).toUpperCase()}</span>
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-sm font-medium truncate">{req.guest_name}</p>
+                                                                </div>
+                                                            </div>
+                                                            <p className="text-[11px] text-muted-foreground leading-relaxed bg-card/50 p-2 rounded-md border border-border/30">
+                                                                {t('room.guest_warning')}
+                                                            </p>
+                                                            <div className="flex gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="default"
+                                                                    onClick={() => approveRequest(req.id)}
+                                                                    className="flex-1 h-8 text-xs rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                                                                >
+                                                                    <Check className="w-3.5 h-3.5 mr-1"/>
+                                                                    {t('room.guest_approve')}
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    onClick={() => rejectRequest(req.id)}
+                                                                    className="flex-1 h-8 text-xs rounded-lg"
+                                                                >
+                                                                    <X className="w-3.5 h-3.5 mr-1"/>
+                                                                    {t('room.guest_reject')}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="p-4 border-t border-border/40 shrink-0">
@@ -917,21 +1379,22 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                                 className={`w-full gap-2 rounded-xl transition-all duration-300 ${isUrlCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-brand hover:bg-brand/90 text-primary-foreground'}`}
                                             >
                                                 {isUrlCopied ? (
-                                                    <><Check className="w-4 h-4" /> {t('room.copied')}</>
+                                                    <><Check className="w-4 h-4"/> {t('room.copied')}</>
                                                 ) : (
-                                                    <><Share2 className="w-4 h-4" /> {t('room.share_url')}</>
+                                                    <><Share2 className="w-4 h-4"/> {t('room.share_url')}</>
                                                 )}
                                             </Button>
                                         </div>
                                     </div>
 
-                                    {isScreenSharing && !isSidebarOpen && !isPeopleCollapsed && !showEnhancePanel && renderPeopleThumbnails()}
+                                    {isRoomScreenSharing && !isSidebarOpen && !isPeopleCollapsed && !showEnhancePanel && renderPeopleThumbnails()}
                                 </aside>
                             </div>
                         </div>
                     </div>
 
-                    <footer className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16 relative">
+                    <footer
+                        className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16 relative">
                         <div className="flex items-center gap-3">
                             <Button
                                 size="icon-lg"
@@ -939,7 +1402,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 onClick={handleToggleAudio}
                                 className="rounded-xl transition-all duration-200 active:scale-90"
                             >
-                                {isAudioMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                                {isAudioMuted ? <MicOff className="w-5 h-5"/> : <Mic className="w-5 h-5"/>}
                             </Button>
                             <Button
                                 size="icon-lg"
@@ -947,7 +1410,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 onClick={handleToggleVideo}
                                 className="rounded-xl transition-all duration-200 active:scale-90"
                             >
-                                {isVideoStopped ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+                                {isVideoStopped ? <CameraOff className="w-5 h-5"/> : <Camera className="w-5 h-5"/>}
                             </Button>
 
                             <Button
@@ -956,7 +1419,7 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 onClick={handleToggleScreenShare}
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${isScreenSharing ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
                             >
-                                {isScreenSharing ? <StopCircle className="w-5 h-5" /> : <MonitorUp className="w-5 h-5" />}
+                                {isScreenSharing ? <StopCircle className="w-5 h-5"/> : <MonitorUp className="w-5 h-5"/>}
                             </Button>
 
                             <Button
@@ -965,17 +1428,20 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 onClick={handleToggleHand}
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${isHandRaised ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30' : ''}`}
                             >
-                                <Hand className="w-5 h-5" />
+                                <Hand className="w-5 h-5"/>
                             </Button>
 
                             <Button
                                 size="icon-lg"
                                 variant={showEnhancePanel ? 'default' : 'secondary'}
-                                onClick={() => { setShowEnhancePanel(v => !v); setIsSidebarOpen(false) }}
+                                onClick={() => {
+                                    setShowEnhancePanel(v => !v);
+                                    setIsSidebarOpen(false)
+                                }}
                                 className={`rounded-xl transition-all duration-200 active:scale-90 ${showEnhancePanel ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
                                 title={t('room.enhance_toggle')}
                             >
-                                <Palette className="w-5 h-5" />
+                                <Palette className="w-5 h-5"/>
                             </Button>
 
                             <div className="relative" ref={pickerRef}>
@@ -986,11 +1452,12 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                     className={`rounded-xl transition-all duration-200 active:scale-90 ${showReactionPicker ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
                                     title={t('room.react')}
                                 >
-                                    <SmilePlus className="w-5 h-5" />
+                                    <SmilePlus className="w-5 h-5"/>
                                 </Button>
                                 {showReactionPicker && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5 z-10">
-                                        {EMOJI_LIST.map(({ emoji, label }) => (
+                                    <div
+                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5 z-10">
+                                        {EMOJI_LIST.map(({emoji, label}) => (
                                             <button
                                                 key={emoji}
                                                 onClick={() => handleReact(emoji)}
@@ -1009,25 +1476,36 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                                 )}
                             </div>
 
-                            <span className="w-px h-8 bg-border/60 mx-1" />
+                            <span className="w-px h-8 bg-border/60 mx-1"/>
 
-                            <Button
-                                size="icon-lg"
-                                variant={isSidebarOpen ? 'default' : 'secondary'}
-                                onClick={() => { setIsSidebarOpen(!isSidebarOpen); setShowEnhancePanel(false) }}
-                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isSidebarOpen ? 'bg-brand text-primary-foreground' : ''}`}
-                            >
-                                <Users className="w-5 h-5" />
-                            </Button>
+                            <div className="relative">
+                                <Button
+                                    size="icon-lg"
+                                    variant={isSidebarOpen ? 'default' : 'secondary'}
+                                    onClick={() => {
+                                        setIsSidebarOpen(!isSidebarOpen);
+                                        setShowEnhancePanel(false)
+                                    }}
+                                    className={`rounded-xl transition-all duration-200 active:scale-90 ${isSidebarOpen ? 'bg-brand text-primary-foreground' : ''}`}
+                                >
+                                    <Users className="w-5 h-5"/>
+                                </Button>
+                                {requests.length > 0 && !isSidebarOpen && (
+                                    <span
+                                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center shadow-md">
+                                        {requests.length}
+                                    </span>
+                                )}
+                            </div>
 
-                            <span className="w-px h-8 bg-border/60 mx-1" />
+                            <span className="w-px h-8 bg-border/60 mx-1"/>
                             <Button
                                 size="lg"
                                 variant="destructive"
-                                onClick={endRoom}
+                                onClick={handleLeaveRoom}
                                 className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
                             >
-                                <PhoneOff className="w-5 h-5" />
+                                <PhoneOff className="w-5 h-5"/>
                                 {t('room.leave')}
                             </Button>
                         </div>
@@ -1041,13 +1519,13 @@ export default function RoomClient({ roomId }: RoomClientProps) {
                         <div
                             key={r.id}
                             className="absolute animate-reaction leading-none"
-                            style={{ bottom: `calc(1rem + ${r.y}px)`, left: `calc(80px + ${r.x}px)` }}
+                            style={{bottom: `calc(1rem + ${r.y}px)`, left: `calc(120px + ${r.x}px)`}}
                         >
                             <img
                                 src={getEmojiUrl(r.emoji)}
                                 alt={r.emoji}
                                 draggable={false}
-                                style={{ width: r.size + 'px', height: r.size + 'px' }}
+                                style={{width: r.size + 'px', height: r.size + 'px'}}
                             />
                         </div>
                     ))}
@@ -1057,7 +1535,10 @@ export default function RoomClient({ roomId }: RoomClientProps) {
             {(isSidebarOpen || showEnhancePanel) && (
                 <div
                     className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
-                    onClick={() => { setIsSidebarOpen(false); setShowEnhancePanel(false) }}
+                    onClick={() => {
+                        setIsSidebarOpen(false);
+                        setShowEnhancePanel(false)
+                    }}
                 />
             )}
         </div>

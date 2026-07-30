@@ -1,21 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useTransition } from 'react'
-import { signup } from '../actions'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Mail, Lock, CheckCircle, CircleAlert, Loader2 } from 'lucide-react'
-import { useI18n } from '@/components/i18n/i18n-provider'
+import {useState, useTransition} from 'react'
+import {signup} from '../actions'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {CheckCircle, CircleAlert, Loader2, Lock, Mail} from 'lucide-react'
+import {useI18n} from '@/components/i18n/i18n-provider'
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const PASSWORD_RULES = [
-    { label: 'password_rules.min_chars', test: (p: string) => p.length > 6 },
-    { label: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p) },
-    { label: 'password_rules.number', test: (p: string) => /[0-9]/.test(p) },
-    { label: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
+    {label: 'password_rules.min_chars', test: (p: string) => p.length > 6},
+    {label: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p)},
+    {label: 'password_rules.number', test: (p: string) => /[0-9]/.test(p)},
+    {label: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p)},
 ]
 
 const ERROR_MAP: Record<string, string> = {
@@ -29,7 +29,7 @@ const ERROR_MAP: Record<string, string> = {
 }
 
 export default function RegisterPage() {
-    const { t } = useI18n()
+    const {t} = useI18n()
     const [isPending, startTransition] = useTransition()
     const [serverError, setServerError] = useState<string | null>(null)
     const [password, setPassword] = useState('')
@@ -74,8 +74,9 @@ export default function RegisterPage() {
     return (
         <div className="flex flex-col space-y-8 text-foreground">
             <div className="text-center space-y-2">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
-                    <Lock className="w-6 h-6 text-brand" />
+                <div
+                    className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
+                    <Lock className="w-6 h-6 text-brand"/>
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('auth.register.heading')}</h1>
                 <p className="text-sm text-muted-foreground">{t('auth.register.subtitle')}</p>
@@ -87,7 +88,8 @@ export default function RegisterPage() {
                         {t('auth.register.email_label')}
                     </Label>
                     <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Mail
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                         <Input
                             id="email"
                             name="email"
@@ -106,7 +108,8 @@ export default function RegisterPage() {
                         {t('auth.register.password_label')}
                     </Label>
                     <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Lock
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                         <Input
                             id="password"
                             name="password"
@@ -128,8 +131,10 @@ export default function RegisterPage() {
                                 const valid = rule.test(password)
                                 return (
                                     <li key={rule.label} className="flex items-center gap-2">
-                                        <CheckCircle className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`} />
-                                        <span className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
+                                        <CheckCircle
+                                            className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`}/>
+                                        <span
+                                            className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
                                             {t(rule.label)}
                                         </span>
                                     </li>
@@ -144,7 +149,8 @@ export default function RegisterPage() {
                         {t('auth.register.confirm_password_label')}
                     </Label>
                     <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Lock
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                         <Input
                             id="confirm_password"
                             name="confirm_password"
@@ -162,7 +168,7 @@ export default function RegisterPage() {
                     </div>
                     {confirmPassword && password !== confirmPassword && (
                         <p className="text-xs text-destructive flex items-center gap-1.5 mt-1" role="alert">
-                            <CircleAlert className="w-3 h-3 shrink-0" />
+                            <CircleAlert className="w-3 h-3 shrink-0"/>
                             <span>{t('errors.passwords_dont_match')}</span>
                         </p>
                     )}
@@ -173,7 +179,7 @@ export default function RegisterPage() {
                         className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20"
                         role="alert"
                     >
-                        <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                        <CircleAlert className="w-4 h-4 mt-0.5 shrink-0"/>
                         <span>{t(ERROR_MAP[serverError] || serverError)}</span>
                     </div>
                 )}
@@ -185,7 +191,7 @@ export default function RegisterPage() {
                 >
                     {isPending ? (
                         <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin"/>
                             <span>{t('auth.register.creating_account')}</span>
                         </>
                     ) : (

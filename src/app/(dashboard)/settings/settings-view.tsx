@@ -1,27 +1,48 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
-import { ArrowLeft, Settings, User, Shield, Lock, LogOut, AtSign, Copy, Check, CircleAlert, Loader2, CheckCircle2, Mail, Sun, Moon, Monitor, Languages, Upload, Trash2, Camera } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { useTheme } from '@/components/theme/theme-provider'
-import { useI18n } from '@/components/i18n/i18n-provider'
-import { updateProfile, updatePassword, savePreferences, signOut } from './actions'
-import { createClient } from '@/lib/supabase/client'
-import { uploadAvatar, deleteAvatar } from '@/lib/supabase/storage'
-import { useDominantColor } from '@/hooks/useDominantColor'
-import { getGradientFromColor } from '@/lib/utils'
+import {useRef, useState, useTransition} from 'react'
+import {
+    ArrowLeft,
+    AtSign,
+    Camera,
+    Check,
+    CheckCircle2,
+    CircleAlert,
+    Copy,
+    Languages,
+    Loader2,
+    Lock,
+    LogOut,
+    Mail,
+    Monitor,
+    Moon,
+    Settings,
+    Shield,
+    Sun,
+    Trash2,
+    Upload,
+    User
+} from 'lucide-react'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
+import {useTheme} from '@/components/theme/theme-provider'
+import {useI18n} from '@/components/i18n/i18n-provider'
+import {savePreferences, signOut, updatePassword, updateProfile} from './actions'
+import {createClient} from '@/lib/supabase/client'
+import {deleteAvatar, uploadAvatar} from '@/lib/supabase/storage'
+import {useDominantColor} from '@/hooks/useDominantColor'
+import {getGradientFromColor} from '@/lib/utils'
 
 type Tab = 'account' | 'profile' | 'preferences' | 'security'
 type Lang = 'es' | 'en'
 
 const PASSWORD_RULES: { labelKey: string; test: (p: string) => boolean }[] = [
-    { labelKey: 'password_rules.min_chars', test: (p: string) => p.length > 6 },
-    { labelKey: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p) },
-    { labelKey: 'password_rules.number', test: (p: string) => /[0-9]/.test(p) },
-    { labelKey: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p) },
+    {labelKey: 'password_rules.min_chars', test: (p: string) => p.length > 6},
+    {labelKey: 'password_rules.uppercase', test: (p: string) => /[A-Z]/.test(p)},
+    {labelKey: 'password_rules.number', test: (p: string) => /[0-9]/.test(p)},
+    {labelKey: 'password_rules.special', test: (p: string) => /[!@#$%^&*(),.?":{}|<>_\-=+\[\]\\\/;'`~]/.test(p)},
 ]
 
 interface ProfileData {
@@ -45,13 +66,18 @@ function getInitials(name: string): string {
 }
 
 const TABS: { key: Tab; labelKey: string; icon: typeof User }[] = [
-    { key: 'account', labelKey: 'settings.tabs.account', icon: Settings },
-    { key: 'profile', labelKey: 'settings.tabs.profile', icon: User },
-    { key: 'preferences', labelKey: 'settings.tabs.preferences', icon: Shield },
-    { key: 'security', labelKey: 'settings.tabs.security', icon: Lock },
+    {key: 'account', labelKey: 'settings.tabs.account', icon: Settings},
+    {key: 'profile', labelKey: 'settings.tabs.profile', icon: User},
+    {key: 'preferences', labelKey: 'settings.tabs.preferences', icon: Shield},
+    {key: 'security', labelKey: 'settings.tabs.security', icon: Lock},
 ]
 
-function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof User; label: string; onClick: () => void }) {
+function TabButton({active, icon: Icon, label, onClick}: {
+    active: boolean;
+    icon: typeof User;
+    label: string;
+    onClick: () => void
+}) {
     return (
         <button
             onClick={onClick}
@@ -60,15 +86,15 @@ function TabButton({ active, icon: Icon, label, onClick }: { active: boolean; ic
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent'
             }`}
         >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-4 h-4"/>
             {label}
         </button>
     )
 }
 
-export function SettingsView({ email, profile }: Props) {
+export function SettingsView({email, profile}: Props) {
     const [tab, setTab] = useState<Tab>('account')
-    const { t } = useI18n()
+    const {t} = useI18n()
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
@@ -78,7 +104,7 @@ export function SettingsView({ email, profile }: Props) {
                     className="mt-1 w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all shrink-0"
                     aria-label={t('nav.back_to_dashboard')}
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-5 h-5"/>
                 </a>
                 <div>
                     <h1 className="text-2xl font-bold text-foreground tracking-tight">{t('settings.heading')}</h1>
@@ -88,20 +114,21 @@ export function SettingsView({ email, profile }: Props) {
 
             <div className="flex flex-col sm:flex-row gap-1.5 pb-4 mb-8 border-b border-border/50">
                 {TABS.map((tabDef) => (
-                    <TabButton key={tabDef.key} active={tab === tabDef.key} icon={tabDef.icon} label={t(tabDef.labelKey)} onClick={() => setTab(tabDef.key)} />
+                    <TabButton key={tabDef.key} active={tab === tabDef.key} icon={tabDef.icon}
+                               label={t(tabDef.labelKey)} onClick={() => setTab(tabDef.key)}/>
                 ))}
             </div>
 
-            {tab === 'account' && <AccountTab email={email} />}
-            {tab === 'profile' && <ProfileTab profile={profile} />}
-            {tab === 'preferences' && <PreferencesTab />}
-            {tab === 'security' && <SecurityTab />}
+            {tab === 'account' && <AccountTab email={email}/>}
+            {tab === 'profile' && <ProfileTab profile={profile}/>}
+            {tab === 'preferences' && <PreferencesTab/>}
+            {tab === 'security' && <SecurityTab/>}
         </div>
     )
 }
 
-function AccountTab({ email }: { email: string }) {
-    const { t } = useI18n()
+function AccountTab({email}: { email: string }) {
+    const {t} = useI18n()
     const [isPending, startTransition] = useTransition()
     const [copied, setCopied] = useState(false)
 
@@ -119,14 +146,14 @@ function AccountTab({ email }: { email: string }) {
                     {t('settings.account.email_desc')}
                 </p>
                 <div className="flex items-center gap-3 rounded-xl bg-muted/50 border border-border/40 px-4 py-3">
-                    <Mail className="w-5 h-5 text-muted-foreground shrink-0" />
+                    <Mail className="w-5 h-5 text-muted-foreground shrink-0"/>
                     <span className="text-sm font-medium text-foreground flex-1 truncate">{email}</span>
                     <button
                         onClick={handleCopy}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0 cursor-pointer"
                         aria-label={t('settings.account.copy_email')}
                     >
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                        {copied ? <Check className="w-4 h-4 text-green-500"/> : <Copy className="w-4 h-4"/>}
                     </button>
                 </div>
             </div>
@@ -151,9 +178,9 @@ function AccountTab({ email }: { email: string }) {
                         className="rounded-xl"
                     >
                         {isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin"/>
                         ) : (
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className="w-4 h-4"/>
                         )}
                         <span>{t('settings.account.sign_out')}</span>
                     </Button>
@@ -163,8 +190,8 @@ function AccountTab({ email }: { email: string }) {
     )
 }
 
-function ProfileTab({ profile }: { profile: ProfileData }) {
-    const { t } = useI18n()
+function ProfileTab({profile}: { profile: ProfileData }) {
+    const {t} = useI18n()
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
     const [fullName, setFullName] = useState(profile.full_name)
@@ -184,12 +211,12 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
         if (!allowedTypes.includes(file.type)) {
-            setResult({ error: 'Invalid file type. Allowed: JPG, PNG, WebP, GIF.' })
+            setResult({error: 'Invalid file type. Allowed: JPG, PNG, WebP, GIF.'})
             return
         }
 
         if (file.size > 50 * 1024 * 1024) {
-            setResult({ error: 'File too large. Maximum size is 50MB.' })
+            setResult({error: 'File too large. Maximum size is 50MB.'})
             return
         }
 
@@ -221,9 +248,9 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 
                 if (avatarFile) {
                     const supabase = createClient()
-                    const { data: { user } } = await supabase.auth.getUser()
+                    const {data: {user}} = await supabase.auth.getUser()
                     if (!user) {
-                        setResult({ error: 'You must be signed in.' })
+                        setResult({error: 'You must be signed in.'})
                         return
                     }
                     finalAvatarUrl = await uploadAvatar(user.id, avatarFile)
@@ -231,7 +258,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 
                 if (!avatarFile && !avatarUrl) {
                     const supabase = createClient()
-                    const { data: { user } } = await supabase.auth.getUser()
+                    const {data: {user}} = await supabase.auth.getUser()
                     if (user) {
                         await deleteAvatar(user.id)
                     }
@@ -249,7 +276,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                 }
                 setResult(res)
             } catch (err) {
-                setResult({ error: err instanceof Error ? err.message : 'Upload failed.' })
+                setResult({error: err instanceof Error ? err.message : 'Upload failed.'})
             }
         })
     }
@@ -259,12 +286,12 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
             <div className="rounded-2xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden">
                 <div
                     className="h-28 transition-all duration-700"
-                    style={{ background: getGradientFromColor(dominantColor) }}
+                    style={{background: getGradientFromColor(dominantColor)}}
                 />
                 <div className="px-4 pb-4 sm:px-8 sm:pb-8">
                     <div className="relative flex justify-between items-end -mt-12 mb-6">
                         <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background shadow-md bg-muted">
-                            <AvatarImage src={displayUrl} />
+                            <AvatarImage src={displayUrl}/>
                             <AvatarFallback className="text-2xl text-muted-foreground">
                                 {initials}
                             </AvatarFallback>
@@ -274,9 +301,11 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label htmlFor="fullName" className="text-card-foreground/80">{t('settings.profile.full_name_label')}</Label>
+                                <Label htmlFor="fullName"
+                                       className="text-card-foreground/80">{t('settings.profile.full_name_label')}</Label>
                                 <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                    <User
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                                     <Input
                                         id="fullName"
                                         name="fullName"
@@ -289,9 +318,11 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="username" className="text-card-foreground/80">{t('settings.profile.username_label')}</Label>
+                                <Label htmlFor="username"
+                                       className="text-card-foreground/80">{t('settings.profile.username_label')}</Label>
                                 <div className="relative">
-                                    <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                    <AtSign
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                                     <Input
                                         id="username"
                                         name="username"
@@ -325,7 +356,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                     onClick={() => fileInputRef.current?.click()}
                                     className="h-12 px-5 text-sm rounded-xl border-border/60 bg-overlay/10 hover:bg-overlay/20 transition-all"
                                 >
-                                    <Upload className="w-4 h-4 mr-2" />
+                                    <Upload className="w-4 h-4 mr-2"/>
                                     {displayUrl ? t('common.change_photo') : t('common.upload_photo')}
                                 </Button>
                                 {displayUrl && (
@@ -336,12 +367,12 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                         onClick={handleRemoveAvatar}
                                         className="h-12 px-4 text-sm rounded-xl border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10 transition-all"
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-4 h-4"/>
                                     </Button>
                                 )}
                                 {!displayUrl && (
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                        <Camera className="w-4 h-4" />
+                                        <Camera className="w-4 h-4"/>
                                         <span>{t('settings.profile.avatar_hint')}</span>
                                     </div>
                                 )}
@@ -349,15 +380,19 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                         </div>
 
                         {result?.error && (
-                            <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20" role="alert">
-                                <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                            <div
+                                className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20"
+                                role="alert">
+                                <CircleAlert className="w-4 h-4 mt-0.5 shrink-0"/>
                                 <span>{result.error}</span>
                             </div>
                         )}
 
                         {result?.success && (
-                            <div className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20" role="status">
-                                <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                            <div
+                                className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20"
+                                role="status">
+                                <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0"/>
                                 <span>{t('settings.profile.success')}</span>
                             </div>
                         )}
@@ -368,7 +403,7 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
                                 disabled={isPending}
                                 className="bg-brand hover:bg-brand-hover text-brand-foreground shadow-md rounded-xl"
                             >
-                                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {isPending && <Loader2 className="w-4 h-4 animate-spin"/>}
                                 {t('settings.profile.save')}
                             </Button>
                         </div>
@@ -380,8 +415,8 @@ function ProfileTab({ profile }: { profile: ProfileData }) {
 }
 
 function PreferencesTab() {
-    const { theme, setTheme } = useTheme()
-    const { t, locale, setLocale } = useI18n()
+    const {theme, setTheme} = useTheme()
+    const {t, locale, setLocale} = useI18n()
     const [saving, setSaving] = useState(false)
 
     async function handleThemeChange(t: 'light' | 'dark' | 'system') {
@@ -397,14 +432,14 @@ function PreferencesTab() {
     }
 
     const themeOptions: { value: 'light' | 'dark' | 'system'; labelKey: string; icon: typeof Sun }[] = [
-        { value: 'light', labelKey: 'settings.preferences.light', icon: Sun },
-        { value: 'dark', labelKey: 'settings.preferences.dark', icon: Moon },
-        { value: 'system', labelKey: 'settings.preferences.system', icon: Monitor },
+        {value: 'light', labelKey: 'settings.preferences.light', icon: Sun},
+        {value: 'dark', labelKey: 'settings.preferences.dark', icon: Moon},
+        {value: 'system', labelKey: 'settings.preferences.system', icon: Monitor},
     ]
 
     const langOptions: { value: Lang; labelKey: string }[] = [
-        { value: 'es', labelKey: 'settings.preferences.spanish' },
-        { value: 'en', labelKey: 'settings.preferences.english' },
+        {value: 'es', labelKey: 'settings.preferences.spanish'},
+        {value: 'en', labelKey: 'settings.preferences.english'},
     ]
 
     return (
@@ -427,7 +462,7 @@ function PreferencesTab() {
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
                                 }`}
                             >
-                                <Icon className={`w-5 h-5 ${active ? 'text-brand' : ''}`} />
+                                <Icon className={`w-5 h-5 ${active ? 'text-brand' : ''}`}/>
                                 {t(opt.labelKey)}
                             </button>
                         )
@@ -453,7 +488,7 @@ function PreferencesTab() {
                                     : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/60'
                                 }`}
                             >
-                                <Languages className={`w-4 h-4 ${active ? 'text-brand' : ''}`} />
+                                <Languages className={`w-4 h-4 ${active ? 'text-brand' : ''}`}/>
                                 {t(opt.labelKey)}
                             </button>
                         )
@@ -465,7 +500,7 @@ function PreferencesTab() {
 }
 
 function SecurityTab() {
-    const { t } = useI18n()
+    const {t} = useI18n()
     const [isPending, startTransition] = useTransition()
     const [result, setResult] = useState<{ error?: string; success?: boolean } | null>(null)
     const [newPassword, setNewPassword] = useState('')
@@ -497,7 +532,8 @@ function SecurityTab() {
                             {t('settings.security.current_password_label')}
                         </Label>
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            <Lock
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                             <Input
                                 id="currentPassword"
                                 name="currentPassword"
@@ -516,7 +552,8 @@ function SecurityTab() {
                             {t('settings.security.new_password_label')}
                         </Label>
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            <Lock
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                             <Input
                                 id="newPassword"
                                 name="newPassword"
@@ -539,8 +576,10 @@ function SecurityTab() {
                                     const valid = rule.test(newPassword)
                                     return (
                                         <li key={rule.labelKey} className="flex items-center gap-2">
-                                            <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`} />
-                                            <span className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
+                                            <CheckCircle2
+                                                className={`w-3.5 h-3.5 shrink-0 ${valid ? 'text-green-500' : 'text-muted-foreground/30'}`}/>
+                                            <span
+                                                className={`text-xs ${valid ? 'text-green-600 font-medium' : 'text-muted-foreground/60'}`}>
                                                 {t(rule.labelKey)}
                                             </span>
                                         </li>
@@ -555,7 +594,8 @@ function SecurityTab() {
                             {t('settings.security.confirm_new_password_label')}
                         </Label>
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                            <Lock
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
                             <Input
                                 id="confirmPassword"
                                 name="confirmPassword"
@@ -570,15 +610,19 @@ function SecurityTab() {
                     </div>
 
                     {result?.error && (
-                        <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20" role="alert">
-                            <CircleAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                        <div
+                            className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20"
+                            role="alert">
+                            <CircleAlert className="w-4 h-4 mt-0.5 shrink-0"/>
                             <span>{result.error}</span>
                         </div>
                     )}
 
                     {result?.success && (
-                        <div className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20" role="status">
-                            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                        <div
+                            className="flex items-start gap-2 text-sm text-green-600 bg-green-500/10 p-3 rounded-xl border border-green-500/20"
+                            role="status">
+                            <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0"/>
                             <span>{t('settings.security.success')}</span>
                         </div>
                     )}
@@ -589,7 +633,7 @@ function SecurityTab() {
                         className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl"
                     >
                         {isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin"/>
                         ) : (
                             t('settings.security.update')
                         )}
