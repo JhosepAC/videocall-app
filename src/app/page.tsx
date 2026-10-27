@@ -1,89 +1,40 @@
 'use client'
 
 import Link from 'next/link'
-import {Button} from '@/components/ui/button'
-import {ArrowRight} from 'lucide-react'
-import CursorGrid from '@/components/CursorGrid/CursorGrid'
+import {ArrowRight, Monitor, Users, Video} from 'lucide-react'
 import {useI18n} from '@/components/i18n/i18n-provider'
-import {useEffect} from 'react'
+import {MeetMeshBrand} from '@/components/auth/auth-shell'
+import {CallPreview} from '@/components/auth/call-preview'
+import '@/components/auth/auth.css'
+import './landing.css'
 
 export default function Home() {
-    const {t} = useI18n()
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            const canvas = document.querySelector('.cursor-grid__canvas') as HTMLCanvasElement | null
-            if (!canvas) return
-            const rect = canvas.getBoundingClientRect()
-            const event = new PointerEvent('pointerdown', {
-                clientX: rect.left + rect.width / 2,
-                clientY: rect.top + rect.height / 2,
-                bubbles: true,
-                cancelable: true,
-            })
-            canvas.dispatchEvent(event)
-        }, 600)
-        return () => clearTimeout(timer)
-    }, [])
-
-    return (
-        <div
-            className="relative min-h-screen flex flex-col items-center justify-center bg-background text-foreground overflow-hidden p-6">
-            <CursorGrid
-                cellSize={50}
-                color="#444444"
-                radius={160}
-                falloff="smooth"
-                holdTime={600}
-                fadeDuration={1000}
-                lineWidth={1}
-                maxOpacity={0.5}
-                fillOpacity={0}
-                gridOpacity={0}
-                cellRadius={2}
-                clickPulse
-                pulseSpeed={500}
-                className="absolute inset-0 z-0"
-            />
-
-            <div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-brand/20 to-brand-secondary/15 rounded-full filter blur-[160px] pointer-events-none"/>
-
-
-            <div className="relative z-10 max-w-3xl text-center space-y-8 flex flex-col items-center">
-
-                <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1] text-foreground">
-                    {t('landing.title')} <br className="hidden sm:inline"/>
-                    <span
-                        className="bg-gradient-to-r from-brand via-brand-secondary to-brand bg-clip-text text-transparent">
-            {t('landing.subtitle')}
-          </span>
-                </h1>
-
-                <p className="max-w-xl text-muted-foreground text-base sm:text-lg leading-relaxed font-normal">
-                    {t('landing.description')}
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2 w-full sm:w-auto">
-                    <Link href="/login" className="w-full sm:w-auto cursor-pointer">
-                        <Button
-                            className="w-full sm:w-auto cursor-pointer bg-brand hover:bg-brand-hover text-brand-foreground px-8 py-6 rounded-2xl text-base font-medium shadow-lg shadow-brand/20 hover:shadow-brand/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200">
-                            {t('landing.login')}
-                        </Button>
-                    </Link>
-
-                    <Link href="/register" className="w-full sm:w-auto cursor-pointer">
-                        <Button
-                            variant="outline"
-                            className="w-full sm:w-auto cursor-pointer group border-border/60 bg-background/40 hover:bg-accent/50 text-foreground px-8 py-6 rounded-2xl text-base font-medium backdrop-blur-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-                        >
-                            <span>{t('landing.create_account')}</span>
-                            <ArrowRight
-                                className="w-4 h-4 ml-2 opacity-60 group-hover:translate-x-1 group-hover:opacity-100 transition-all"/>
-                        </Button>
-                    </Link>
+    const {t, locale} = useI18n()
+    return <div className="entry-page landing-page" lang={locale}>
+        <header className="entry-header">
+            <MeetMeshBrand/>
+            <nav className="landing-nav" aria-label={t('auth.experience.navigation')}>
+                <Link href="/login">{t('landing.login')}</Link>
+                <Link href="/register" className="landing-nav-cta">{t('auth.register.create_account')}<ArrowRight size={15} aria-hidden="true"/></Link>
+            </nav>
+        </header>
+        <main className="landing-main">
+            <div className="landing-intro">
+                <h1>{t('landing.title')}<br/>{t('landing.headline_close')}</h1>
+                <p>{t('landing.intro')}</p>
+                <div className="landing-actions">
+                    <Link href="/register" className="landing-primary">{t('landing.create_account')}<ArrowRight size={18} aria-hidden="true"/></Link>
+                    <Link href="/login" className="landing-secondary">{t('landing.login')}</Link>
                 </div>
+                <p className="landing-note">{t('landing.account_note')}</p>
             </div>
-        </div>
-    )
+            <div className="landing-visual"><CallPreview/><p>{t('landing.preview_hint')}</p></div>
+            <section className="landing-capabilities" aria-label={t('landing.features_label')}>
+                <div><Video size={19} strokeWidth={1.5} aria-hidden="true"/><h2>{t('landing.direct_title')}</h2><p>{t('landing.direct_description')}</p></div>
+                <div><Monitor size={19} strokeWidth={1.5} aria-hidden="true"/><h2>{t('landing.screen_title')}</h2><p>{t('landing.screen_description')}</p></div>
+                <div><Users size={19} strokeWidth={1.5} aria-hidden="true"/><h2>{t('landing.guest_title')}</h2><p>{t('landing.guest_description')}</p></div>
+            </section>
+        </main>
+        <footer className="entry-footer"><span>MeetMesh</span><span>{t('auth.experience.footer')}</span></footer>
+    </div>
 }

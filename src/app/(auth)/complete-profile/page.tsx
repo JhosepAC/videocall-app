@@ -153,8 +153,8 @@ export default function CompleteProfilePage() {
         : '?'
 
     return (
-        <div className="flex flex-col space-y-8 text-foreground">
-            <div className="text-center space-y-2">
+        <div className="auth-content">
+            <div className="auth-heading">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                     {t('auth.complete_profile.heading')}
                 </h1>
@@ -190,7 +190,7 @@ export default function CompleteProfilePage() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <form onSubmit={handleSubmit} className="auth-form" noValidate>
                 <div className="space-y-2">
                     <Label htmlFor="full_name" className="text-sm font-medium text-foreground/80">
                         {t('auth.complete_profile.full_name_label')}
@@ -210,7 +210,7 @@ export default function CompleteProfilePage() {
                                 setFullName(e.target.value)
                                 setServerError(null)
                             }}
-                            className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
+                            className="auth-input"
                         />
                     </div>
                 </div>
@@ -234,7 +234,7 @@ export default function CompleteProfilePage() {
                                 setUsername(e.target.value)
                                 setServerError(null)
                             }}
-                            className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:ring-brand transition-all shadow-inner rounded-xl"
+                            className="auth-input"
                         />
                     </div>
                 </div>
@@ -243,7 +243,7 @@ export default function CompleteProfilePage() {
                     <Label className="text-sm font-medium text-foreground/80">
                         {t('auth.complete_profile.avatar_label')}
                     </Label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <input
                             ref={fileInputRef}
                             id="avatar_file"
@@ -270,6 +270,7 @@ export default function CompleteProfilePage() {
                                 variant="outline"
                                 disabled={isPending}
                                 onClick={handleRemoveAvatar}
+                                aria-label={t('auth.experience.remove_photo')}
                                 className="h-12 px-4 text-sm rounded-xl border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10 transition-all"
                             >
                                 <Trash2 className="w-4 h-4"/>
@@ -297,7 +298,7 @@ export default function CompleteProfilePage() {
                 <Button
                     type="submit"
                     disabled={isPending}
-                    className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="auth-submit"
                 >
                     {isPending ? (
                         <>

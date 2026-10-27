@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Create Next App",
+    title: "MeetMesh | Videoconferencias",
     description: "Video call application",
 };
 
