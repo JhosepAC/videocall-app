@@ -42,6 +42,17 @@ export const es: Translations = {
     },
 
     landing: {
+        headline_close: 'Más cerca de todos.',
+        intro: 'Un enlace, una conversación. Reúnete cara a cara, comparte tu pantalla y haz espacio para las buenas ideas.',
+        account_note: 'Crea tu cuenta y empieza una reunión.',
+        preview_hint: 'Prueba los controles. Es solo una vista de ejemplo.',
+        features_label: 'Qué puedes hacer con MeetMesh',
+        direct_title: 'Conexión de persona a persona',
+        direct_description: 'Audio y video entre participantes mediante WebRTC.',
+        screen_title: 'Tus ideas, en pantalla',
+        screen_description: 'Comparte tu pantalla sin salir de la conversación.',
+        guest_title: 'Un lugar para tus invitados',
+        guest_description: 'Comparte el enlace y decide quién entra a tu sala.',
         title: 'Videoconferencias',
         subtitle: 'Privadas, Seguras y Libres',
         description: 'Conéctate directamente con quien quieras. Sin intermediarios, sin límites de tiempo y con total privacidad.',
@@ -50,12 +61,35 @@ export const es: Translations = {
     },
 
     auth: {
+        experience: {
+            back_home: 'Volver al inicio',
+            about: 'Acerca de MeetMesh',
+            heading: 'Menos distancia. Más conversación.',
+            description: 'Un espacio para encontrarte, compartir ideas y conectar directamente con los demás.',
+            note: 'Tu próxima conversación empieza aquí.',
+            footer: 'Conexiones directas. Conversaciones sin prisa.',
+            navigation: 'Acceso a tu cuenta',
+            preview: 'Así se ve una conversación',
+            demo: 'Vista de ejemplo',
+            you: 'Tú',
+            toggle_mic: 'Alternar micrófono de ejemplo',
+            toggle_camera: 'Alternar cámara de ejemplo',
+            toggle_screen: 'Alternar pantalla de ejemplo',
+            shared_screen: 'Un espacio para tus ideas',
+            sharing: 'Pantalla de ejemplo compartida',
+            show_password: 'Mostrar contraseña',
+            hide_password: 'Ocultar contraseña',
+            caps_lock: 'Bloq Mayús está activado.',
+            passwords_match: 'Las contraseñas coinciden',
+            rule_met: 'Requisito cumplido',
+            remove_photo: 'Eliminar foto de perfil',
+        },
         layout_title: 'Acceso | Plataforma P2P',
         layout_description: 'Inicia sesión o regístrate para acceder a videoconferencias seguras, sin intermediarios y de alta calidad.',
 
         login: {
             heading: 'Bienvenido de nuevo',
-            subtitle: 'Ingresa tus credenciales para continuar',
+            subtitle: 'Entra a tu cuenta. La conversación continúa.',
             email_label: 'Correo Electrónico',
             email_placeholder: 'correo@ejemplo.com',
             password_label: 'Contraseña',
@@ -69,7 +103,7 @@ export const es: Translations = {
 
         register: {
             heading: 'Crear Cuenta',
-            subtitle: 'Ingresa tus credenciales para crear una cuenta',
+            subtitle: 'Tu espacio para conectar empieza con una cuenta.',
             email_label: 'Correo Electrónico',
             email_placeholder: 'correo@ejemplo.com',
             password_label: 'Contraseña',

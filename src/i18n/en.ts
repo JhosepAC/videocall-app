@@ -40,6 +40,17 @@ export const en = {
     },
 
     landing: {
+        headline_close: 'Closer to everyone.',
+        intro: 'One link, one conversation. Meet face to face, share your screen, and make room for good ideas.',
+        account_note: 'Create an account and start a meeting.',
+        preview_hint: 'Try the controls. This is an example preview.',
+        features_label: 'What you can do with MeetMesh',
+        direct_title: 'Person-to-person connection',
+        direct_description: 'Audio and video between participants with WebRTC.',
+        screen_title: 'Your ideas, on screen',
+        screen_description: 'Share your screen without leaving the conversation.',
+        guest_title: 'A place for your guests',
+        guest_description: 'Share a link and decide who joins your room.',
         title: 'Video Conferencing',
         subtitle: 'Private, Secure, and Free',
         description: 'Connect directly with anyone you want. No intermediaries, no time limits, and total privacy.',
@@ -48,12 +59,35 @@ export const en = {
     },
 
     auth: {
+        experience: {
+            back_home: 'Back to home',
+            about: 'About MeetMesh',
+            heading: 'Less distance. More conversation.',
+            description: 'A space to meet, share ideas, and connect directly with each other.',
+            note: 'Your next conversation starts here.',
+            footer: 'Direct connections. Unhurried conversations.',
+            navigation: 'Account access',
+            preview: 'A glimpse of your conversation',
+            demo: 'Example preview',
+            you: 'You',
+            toggle_mic: 'Toggle example microphone',
+            toggle_camera: 'Toggle example camera',
+            toggle_screen: 'Toggle example screen',
+            shared_screen: 'A space for your ideas',
+            sharing: 'Example screen shared',
+            show_password: 'Show password',
+            hide_password: 'Hide password',
+            caps_lock: 'Caps Lock is on.',
+            passwords_match: 'Passwords match',
+            rule_met: 'Requirement met',
+            remove_photo: 'Remove profile photo',
+        },
         layout_title: 'Access | P2P Platform',
         layout_description: 'Sign in or register to access secure, high-quality peer-to-peer video conferences.',
 
         login: {
             heading: 'Welcome back',
-            subtitle: 'Enter your credentials to continue',
+            subtitle: 'Sign in. Pick up the conversation.',
             email_label: 'Email',
             email_placeholder: 'email@example.com',
             password_label: 'Password',
@@ -67,7 +101,7 @@ export const en = {
 
         register: {
             heading: 'Create Account',
-            subtitle: 'Enter your credentials to create an account',
+            subtitle: 'Your space to connect starts with an account.',
             email_label: 'Email',
             email_placeholder: 'email@example.com',
             password_label: 'Password',
@@ -310,6 +344,7 @@ export type Translations = {
     nav: Record<string, string>
     landing: Record<string, string>
     auth: {
+        experience: Record<string, string>
         layout_title: string
         layout_description: string
         login: Record<string, string>
