@@ -38,7 +38,7 @@ const CursorGrid = ({
     const wakeRef = useRef(null);
     const autoPulsedRef = useRef(false);
 
-    propsRef.current = {
+    useEffect(() => { propsRef.current = {
         cellSize,
         color,
         radius,
@@ -52,7 +52,7 @@ const CursorGrid = ({
         cellRadius,
         clickPulse,
         pulseSpeed
-    };
+    }; }, [cellSize, color, radius, falloff, holdTime, fadeDuration, lineWidth, maxOpacity, fillOpacity, gridOpacity, cellRadius, clickPulse, pulseSpeed]);
 
     useEffect(() => {
         const container = containerRef.current;

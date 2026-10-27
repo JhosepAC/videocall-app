@@ -42,3 +42,9 @@ next-env.d.ts
 
 # JetBrains
 .idea/
+
+# Agents
+.agents/
+.impeccable/
+.codex/
+docs/
