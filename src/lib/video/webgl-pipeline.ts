@@ -138,6 +138,7 @@ export class WebGLPipeline {
     private gl: WebGL2RenderingContext | null = null
     private program: WebGLProgram | null = null
     private vao: WebGLVertexArrayObject | null = null
+    private buffer: WebGLBuffer | null = null
     private videoTex: WebGLTexture | null = null
     private prevTex: WebGLTexture | null = null
     private animId: number = 0
@@ -178,6 +179,8 @@ export class WebGLPipeline {
         gl.attachShader(this.program, vs)
         gl.attachShader(this.program, fs)
         gl.linkProgram(this.program)
+        gl.deleteShader(vs)
+        gl.deleteShader(fs)
         if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
             console.warn('[WebGL] Program link failed:', gl.getProgramInfoLog(this.program))
             return
@@ -195,6 +198,7 @@ export class WebGLPipeline {
             -1, 1, 0, 1,
         ])
         const buf = gl.createBuffer()
+        this.buffer = buf
         gl.bindBuffer(gl.ARRAY_BUFFER, buf)
         gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW)
 
@@ -294,6 +298,7 @@ export class WebGLPipeline {
 
     start() {
         this.stop()
+        let lastVideoTime = -1
         const loop = () => {
             const gl = this.gl
             const v = this.video
@@ -306,6 +311,11 @@ export class WebGLPipeline {
                 this.animId = requestAnimationFrame(loop)
                 return
             }
+            if (v.currentTime === lastVideoTime) {
+                this.animId = requestAnimationFrame(loop)
+                return
+            }
+            lastVideoTime = v.currentTime
 
             this.syncCanvasSize()
             gl.viewport(0, 0, this.canvas.width, this.canvas.height)
@@ -365,8 +375,10 @@ export class WebGLPipeline {
         }
     }
 
-    getOutputTrack(fps: number = 30): MediaStreamTrack | null {
-        if (!this.outputStream) {
+    getOutputTrack(fps: number = 30, renew = false): MediaStreamTrack | null {
+        if (!this.gl || !this.program) return null
+        if (renew || !this.outputStream || this.outputStream.getVideoTracks()[0]?.readyState === 'ended') {
+            this.outputStream?.getTracks().forEach(track => track.stop())
             this.outputStream = this.canvas.captureStream(fps)
         }
         return this.outputStream.getVideoTracks()[0] ?? null
@@ -384,6 +396,8 @@ export class WebGLPipeline {
             gl.deleteTexture(this.videoTex)
             gl.deleteTexture(this.prevTex)
             gl.deleteProgram(this.program)
+            gl.deleteVertexArray(this.vao)
+            gl.deleteBuffer(this.buffer)
         }
         this.canvas.remove()
         this.outputStream?.getTracks().forEach(t => t.stop())
