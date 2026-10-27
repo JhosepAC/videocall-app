@@ -3,7 +3,6 @@
 import {Suspense} from 'react'
 import Link from 'next/link'
 import {ArrowLeft, ExternalLink, Mail} from 'lucide-react'
-import {Button} from '@/components/ui/button'
 import {useI18n} from '@/components/i18n/i18n-provider'
 import {useSearchParams} from 'next/navigation'
 
@@ -13,12 +12,12 @@ function VerifyEmailContent() {
     const email = searchParams?.get('email') || t('auth.verify_email.your_email')
 
     return (
-        <div className="flex flex-col items-center text-center space-y-8 text-foreground">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
+        <div className="auth-content auth-status">
+            <div className="auth-status-icon">
                 <Mail className="w-8 h-8 text-brand"/>
             </div>
 
-            <div className="space-y-2">
+            <div className="auth-heading">
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                     {t('auth.verify_email.heading')}
                 </h1>
@@ -28,24 +27,15 @@ function VerifyEmailContent() {
                 </p>
             </div>
 
-            <a
-                href="https://mail.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full"
-            >
-                <Button
-                    className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl">
-                    <ExternalLink className="w-4 h-4"/>
-                    {t('auth.verify_email.open_gmail')}
-                </Button>
+            <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer" className="auth-text-link">
+                <ExternalLink className="w-4 h-4" aria-hidden="true"/>{t('auth.verify_email.open_gmail')}
             </a>
 
             <p className="text-xs text-muted-foreground max-w-xs">
                 {t('auth.verify_email.hint')}
             </p>
 
-            <div className="text-center text-sm text-muted-foreground border-t border-border/40 pt-6 w-full">
+            <div className="auth-bottom">
                 <Link
                     href="/login"
                     className="inline-flex items-center gap-1.5 text-brand hover:text-brand-hover font-medium transition-colors"

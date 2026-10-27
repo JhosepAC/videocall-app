@@ -20,23 +20,15 @@ function getAverageColor(data: Uint8ClampedArray): { r: number; g: number; b: nu
 }
 
 export function useDominantColor(imageUrl: string | null): string | null {
-    const [color, setColor] = useState<string | null>(null)
+    const [result, setResult] = useState<{url: string; color: string | null} | null>(null)
 
     useEffect(() => {
-        if (!imageUrl) {
-            setColor(null)
-            return
-        }
-
-        if (cache.has(imageUrl)) {
-            setColor(cache.get(imageUrl)!)
-            return
-        }
+        if (!imageUrl || cache.has(imageUrl)) return
+        let active = true
+        const setColor = (color: string | null) => { if (active) setResult({url: imageUrl, color}) }
 
         const img = new Image()
         img.crossOrigin = 'anonymous'
-        const separator = imageUrl.includes('?') ? '&' : '?'
-        img.src = `${imageUrl}${separator}_dc=${Date.now()}`
 
         img.onload = () => {
             const canvas = document.createElement('canvas')
@@ -66,7 +58,9 @@ export function useDominantColor(imageUrl: string | null): string | null {
         }
 
         img.onerror = () => setColor(null)
+        img.src = imageUrl
+        return () => { active = false; img.onload = null; img.onerror = null }
     }, [imageUrl])
 
-    return color
+    return imageUrl ? cache.get(imageUrl) ?? (result?.url === imageUrl ? result.color : null) : null
 }

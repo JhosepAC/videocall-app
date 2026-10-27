@@ -1,6 +1,6 @@
 'use client'
 
-import {createContext, useCallback, useContext, useEffect, useState} from 'react'
+import {createContext, useCallback, useContext, useEffect, useSyncExternalStore} from 'react'
 import type {Locale, NestedTranslations} from '@/i18n/types'
 import {en} from '@/i18n/en'
 import {es} from '@/i18n/es'
@@ -34,25 +34,38 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-export function I18nProvider({children}: { children: React.ReactNode }) {
-    const [locale, setLocaleState] = useState<Locale>(() => {
-        if (typeof window === 'undefined') return 'en'
-        const stored = localStorage.getItem(STORAGE_KEY) as Locale | null
+const getPreferredLocale = (): Locale => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY)
         if (stored === 'en' || stored === 'es') return stored
-        return getSystemLocale()
-    })
+    } catch { /* Storage can be unavailable in private contexts. */ }
+    return getSystemLocale()
+}
+const subscribeToPreferredLocale = (onChange: () => void) => {
+    window.addEventListener('storage', onChange)
+    window.addEventListener('languagechange', onChange)
+    window.addEventListener('meetmesh:locale', onChange)
+    return () => {
+        window.removeEventListener('storage', onChange)
+        window.removeEventListener('languagechange', onChange)
+        window.removeEventListener('meetmesh:locale', onChange)
+    }
+}
+
+export function I18nProvider({children}: { children: React.ReactNode }) {
+    const locale = useSyncExternalStore(subscribeToPreferredLocale, getPreferredLocale, getServerLocale)
 
     useEffect(() => {
         document.documentElement.setAttribute('lang', locale)
     }, [locale])
 
     const setLocale = useCallback((l: Locale) => {
-        setLocaleState(l)
         document.documentElement.setAttribute('lang', l)
         try {
             localStorage.setItem(STORAGE_KEY, l)
         } catch {
         }
+        window.dispatchEvent(new Event('meetmesh:locale'))
     }, [])
 
     const t = useCallback((key: string): string => {
@@ -66,14 +79,20 @@ export function I18nProvider({children}: { children: React.ReactNode }) {
     )
 }
 
+const subscribeToSystemLocale = (onChange: () => void) => {
+    window.addEventListener('languagechange', onChange)
+    return () => window.removeEventListener('languagechange', onChange)
+}
+const getServerLocale = (): Locale => 'en'
+
 export function SystemI18nProvider({children}: { children: React.ReactNode }) {
-    const locale = getSystemLocale()
+    const locale = useSyncExternalStore(subscribeToSystemLocale, getSystemLocale, getServerLocale)
 
     const t = useCallback((key: string): string => {
         return resolvePath(dictionaries[locale], key)
     }, [locale])
 
-    const setLocale = useCallback((_l: Locale) => {
+    const setLocale = useCallback(() => {
     }, [])
 
     return (

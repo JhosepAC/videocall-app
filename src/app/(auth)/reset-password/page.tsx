@@ -1,8 +1,8 @@
 'use client'
-import {useEffect, useState} from 'react'
+import {useEffect, useState, useTransition} from 'react'
 import {createClient} from '@/lib/supabase/client'
 import {Button} from '@/components/ui/button'
-import {Input} from '@/components/ui/input'
+import {PasswordField} from '@/components/auth/auth-fields'
 import {Label} from '@/components/ui/label'
 import {CheckCircle, LoaderCircle, Lock} from 'lucide-react'
 import Link from 'next/link'
@@ -16,7 +16,8 @@ export default function ResetPasswordPage() {
     const [password, setPassword] = useState('')
     const [confirm, setConfirm] = useState('')
     const [error, setError] = useState('')
-    const supabase = createClient()
+    const [pending, startTransition] = useTransition()
+    const [supabase] = useState(createClient)
 
     useEffect(() => {
         supabase.auth.getSession().then(({data}) => {
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
                 setView('invalid')
             }
         })
-    }, [])
+    }, [supabase])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -41,13 +42,14 @@ export default function ResetPasswordPage() {
             return
         }
 
-        const {error} = await supabase.auth.updateUser({password})
-        if (error) {
-            setError(error.message)
-            return
-        }
-
-        setView('success')
+        startTransition(async () => {
+            const {error} = await supabase.auth.updateUser({password})
+            if (error) {
+                setError(t('errors.server_error'))
+                return
+            }
+            setView('success')
+        })
     }
 
     if (view === 'loading') {
@@ -61,107 +63,84 @@ export default function ResetPasswordPage() {
 
     if (view === 'invalid') {
         return (
-            <div className="flex flex-col items-center text-center space-y-6">
+            <div className="auth-status">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
                     <Lock className="w-8 h-8 text-destructive"/>
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold tracking-tight">{t('auth.reset_password.invalid_heading')}</h2>
+                    <h1>{t('auth.reset_password.invalid_heading')}</h1>
                     <p className="text-sm text-muted-foreground max-w-xs">
                         {t('auth.reset_password.invalid_message')}
                     </p>
                 </div>
-                <Link href="/forgot-password">
-                    <Button className="bg-brand hover:bg-brand-hover text-brand-foreground rounded-xl px-6">
-                        {t('auth.reset_password.request_new')}
-                    </Button>
-                </Link>
+                <Link href="/forgot-password" className="auth-text-link">{t('auth.reset_password.request_new')}</Link>
             </div>
         )
     }
 
     if (view === 'success') {
         return (
-            <div className="flex flex-col items-center text-center space-y-6">
+            <div className="auth-status">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10">
                     <CheckCircle className="w-8 h-8 text-brand"/>
                 </div>
                 <div className="space-y-2">
-                    <h2 className="text-xl font-semibold tracking-tight">{t('auth.reset_password.success_heading')}</h2>
+                    <h1>{t('auth.reset_password.success_heading')}</h1>
                     <p className="text-sm text-muted-foreground max-w-xs">
                         {t('auth.reset_password.success_message')}
                     </p>
                 </div>
-                <Link href="/login">
-                    <Button
-                        className="bg-brand hover:bg-brand-hover text-brand-foreground rounded-xl px-8 h-12 text-sm font-medium shadow-lg hover:shadow-brand/25 transition-all duration-300">
-                        {t('auth.reset_password.sign_in')}
-                    </Button>
-                </Link>
+                <Link href="/login" className="auth-text-link">{t('auth.reset_password.sign_in')}</Link>
             </div>
         )
     }
 
     return (
-        <div className="flex flex-col space-y-8 text-foreground">
-            <div className="text-center space-y-2">
-                <div
-                    className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 border border-brand/20">
-                    <Lock className="w-6 h-6 text-brand"/>
-                </div>
+        <div className="auth-content">
+            <div className="auth-heading">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('auth.reset_password.form_heading')}</h1>
                 <p className="text-sm text-muted-foreground">{t('auth.reset_password.form_subtitle')}</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
+            <form onSubmit={handleSubmit} className="auth-form" aria-busy={pending}>
                 <div className="space-y-2">
                     <Label htmlFor="password"
                            className="text-sm font-medium text-foreground/80">{t('auth.reset_password.new_password_label')}</Label>
-                    <div className="relative">
-                        <Lock
-                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
-                        <Input
+                        <PasswordField
                             id="password"
                             name="password"
-                            type="password"
+                            disabled={pending}
                             placeholder="••••••••"
                             required
                             autoComplete="new-password"
                             value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
+                            onChange={e => {setPassword(e.target.value); setError('')}}
                         />
-                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="confirm"
                            className="text-sm font-medium text-foreground/80">{t('auth.reset_password.confirm_password_label')}</Label>
-                    <div className="relative">
-                        <Lock
-                            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"/>
-                        <Input
+                        <PasswordField
                             id="confirm"
                             name="confirm"
-                            type="password"
+                            disabled={pending}
                             placeholder="••••••••"
                             required
                             autoComplete="new-password"
                             value={confirm}
-                            onChange={e => setConfirm(e.target.value)}
-                            className="h-12 w-full pl-11 pr-4 text-sm bg-overlay/10 border-border/60 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-brand focus-visible:border-brand transition-all shadow-inner rounded-xl"
+                            onChange={e => {setConfirm(e.target.value); setError('')}}
                         />
-                    </div>
                 </div>
 
                 {error && (
-                    <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20 text-center">
+                    <p className="auth-field-error" role="alert">
                         {error}
                     </p>
                 )}
 
-                <Button type="submit"
-                        className="w-full h-12 text-sm font-medium bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg hover:shadow-brand/25 transition-all duration-300 rounded-xl">
-                    {t('auth.reset_password.update')}
+                <Button type="submit" disabled={pending} className="auth-submit">
+                    {pending && <LoaderCircle size={17} className="animate-spin"/>}
+                    {t(pending ? 'common.saving' : 'auth.reset_password.update')}
                 </Button>
             </form>
         </div>

@@ -2,1571 +2,362 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {useRouter} from 'next/navigation'
-import {
-    AlertCircle,
-    Camera,
-    CameraOff,
-    Cast,
-    Check,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
-    ChevronUp,
-    Clock,
-    Contrast,
-    Copy,
-    Droplets,
-    Hand,
-    Loader2,
-    Mic,
-    MicOff,
-    MonitorUp,
-    Palette,
-    PhoneOff,
-    Pin,
-    RotateCcw,
-    Share2,
-    ShieldAlert,
-    SlidersHorizontal,
-    SmilePlus,
-    Sparkles,
-    StopCircle,
-    Sun,
-    Thermometer,
-    User,
-    Users,
-    X
-} from 'lucide-react'
-import {Button} from '@/components/ui/button'
+import Link from 'next/link'
+import {AlertCircle, Check, ChevronLeft, ChevronRight, Copy, Hand, Loader2, MessageSquare,
+    Mic, MicOff, MonitorUp, Palette, PhoneOff, Pin, RotateCcw, Send, Share2, SmilePlus, Users, Video, VideoOff, Wifi, WifiOff, X} from 'lucide-react'
+import type {LucideIcon} from 'lucide-react'
 import {useI18n} from '@/components/i18n/i18n-provider'
 import {useLocalMediaStream} from '@/hooks/useLocalMediaStream'
-import type {EnhancementConfig} from '@/hooks/useVideoEnhancer'
 import {DEFAULT_ENHANCEMENT, useVideoEnhancer} from '@/hooks/useVideoEnhancer'
-import {ParticipantInfo, useWebRTC} from '@/hooks/useWebRTC'
+import type {EnhancementConfig} from '@/hooks/useVideoEnhancer'
+import {useWebRTC} from '@/hooks/useWebRTC'
+import type {ParticipantInfo} from '@/hooks/useWebRTC'
+import {useHostRequests} from '@/hooks/useJoinRequests'
 import {createClient} from '@/lib/supabase/client'
 import {EMOJI_LIST, getEmojiUrl} from '@/lib/emojis'
-import {useDominantColor} from '@/hooks/useDominantColor'
-import {getGradientFromColor} from '@/lib/utils'
-import {useHostRequests} from '@/hooks/useJoinRequests'
 import GuestLobby from './GuestLobby'
+import './room.css'
 
-const MAX_GRID_PAGE_SIZE = 9
+type Panel = 'people' | 'chat' | 'effects' | null
+const PAGE_SIZE = 9
 
-interface RoomClientProps {
-    roomId: string
-}
-
-const RemoteVideo = ({stream, info, className = ''}: {
-    stream: MediaStream;
-    info: ParticipantInfo;
-    className?: string
-}) => {
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const isVideoPlaying = !info.isVideoMuted
-
+function MeetingVideo({stream, name, avatar, videoOff, audioOff, hand, local = false, screen = false, status, host = false}: {
+    stream?: MediaStream | null; name: string; avatar?: string | null; videoOff?: boolean; audioOff?: boolean;
+    hand?: boolean; local?: boolean; screen?: boolean; status?: string; host?: boolean
+}) {
+    const ref = useRef<HTMLVideoElement>(null)
+    const {locale} = useI18n()
+    const es = locale === 'es'
     useEffect(() => {
-        if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream
-        }
+        const video = ref.current
+        if (!video) return
+        video.srcObject = stream || null
+        if (stream) void video.play().catch(() => {})
+        return () => { video.srcObject = null }
     }, [stream])
-
-    const name = info.fullName || 'Participant'
-    const username = info.username ? `@${info.username}` : ''
-    const dominantColor = useDominantColor(info.avatarUrl || null)
-
-    return (
-        <div
-            className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-border/40 ${className}`}>
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
-            />
-
-            {!isVideoPlaying && (
-                <div
-                    className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm text-muted-foreground transition-all duration-300"
-                    style={{background: getGradientFromColor(dominantColor)}}>
-                    {info.avatarUrl ? (
-                        <img
-                            src={info.avatarUrl}
-                            alt={name}
-                            className="w-32 h-32 md:w-48 md:h-48 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
-                        />
-                    ) : (
-                        <div
-                            className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl">
-                            <User className="w-12 h-12 md:w-16 md:h-16 text-foreground/60"/>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
-                    <p className="text-xs font-semibold text-black leading-tight">{name}</p>
-                    {username && (
-                        <p className="text-[10px] text-black/60 leading-tight">{username}</p>
-                    )}
-                </div>
-                {info.isHandRaised && (
-                    <div className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                        <Hand className="w-3 h-3"/>
-                    </div>
-                )}
-                {info.isAudioMuted && (
-                    <div className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                        <MicOff className="w-3 h-3"/>
-                    </div>
-                )}
-            </div>
+    const waiting = !stream || (!local && status !== 'connected')
+    const initials = name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('').toUpperCase()
+    return <article className={`meeting-tile ${screen ? 'meeting-presentation' : ''}`} data-local={local} data-hand={Boolean(hand)} data-peer-state={status} aria-label={name}>
+        <video ref={ref} autoPlay playsInline muted className={`${local && !screen ? 'meeting-mirror' : ''} ${videoOff || waiting ? 'meeting-video-hidden' : ''}`}/>
+        {(videoOff || waiting) && <div className="meeting-avatar">
+            {waiting && !local ? <><Loader2 className="meeting-spinner" size={26}/><span>{es ? 'Conectando' : 'Connecting'}</span></> :
+                avatar ? <img src={avatar} alt=""/> : <span className="meeting-initials">{initials || 'M'}</span>}
+        </div>}
+        <div className="meeting-tile-meta">
+            <span className="meeting-name">{name}{local && <span> · {es ? 'Tú' : 'You'}</span>}{host && <span> · {es ? 'Anfitrión' : 'Host'}</span>}</span>
+            <span className="meeting-tile-states">
+                {hand && <Hand size={16} className="meeting-hand" aria-label={es ? 'Mano levantada' : 'Hand raised'}/>}
+                {audioOff && !screen && <MicOff size={16} aria-label={es ? 'Micrófono apagado' : 'Microphone off'}/>}
+            </span>
         </div>
-    )
+    </article>
 }
 
-const ScreenShareTile = ({ stream, participantName, isPinned, onTogglePin, canPin }: {
-    stream: MediaStream | null;
-    participantName: string;
-    isPinned: boolean;
-    onTogglePin?: () => void;
-    canPin?: boolean;
-}) => {
-    const videoRef = useRef<HTMLVideoElement>(null)
-
+// Audio has one persistent owner per participant, independent of the visible
+// tile, pagination, presentation layout or collapsed participant strip.
+function RemoteAudio({stream, onBlocked}: {stream: MediaStream; onBlocked: () => void}) {
+    const ref = useRef<HTMLAudioElement>(null)
     useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.srcObject = stream
-        }
-    }, [stream])
-
-    return (
-        <div className="relative w-full h-full min-h-0 min-w-0 flex items-center justify-center overflow-hidden group">
-            <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-contain"
-            />
-
-            {!stream && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black rounded-2xl backdrop-blur-sm">
-                    <div className="relative">
-                        <div
-                            className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
-                            <Cast className="w-6 h-6 text-white/70"/>
-                        </div>
-                        <span
-                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand flex items-center justify-center">
-                            <Loader2 className="w-2.5 h-2.5 text-white animate-spin"/>
-                        </span>
-                    </div>
-                    <div className="flex flex-col items-center gap-5">
-                        <span className="text-sm font-medium text-white/90">Connecting presentation</span>
-                        <div className="flex gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
-                                  style={{animationDelay: '0ms'}}/>
-                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
-                                  style={{animationDelay: '150ms'}}/>
-                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
-                                  style={{animationDelay: '300ms'}}/>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Pin toggle centered */}
-            {canPin && onTogglePin && (
-                <button
-                    onClick={onTogglePin}
-                    aria-label={isPinned ? `Unpin ${participantName}'s screen` : `Pin ${participantName}'s screen`}
-                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-12 h-12 flex items-center justify-center backdrop-blur-md rounded-2xl text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 ${
-                        isPinned
-                            ? 'bg-brand/90 hover:bg-brand shadow-lg shadow-brand/30 scale-110'
-                            : 'bg-black/60 hover:bg-white/20'
-                    }`}
-                    title={isPinned ? 'Unpin' : 'Pin'}
-                >
-                    <Pin className={`w-5 h-5 ${isPinned ? 'fill-current' : ''}`}/>
-                </button>
-            )}
-        </div>
-    )
+        const audio = ref.current
+        if (!audio) return
+        audio.srcObject = stream
+        void audio.play().catch(onBlocked)
+        return () => { audio.srcObject = null }
+    }, [stream, onBlocked])
+    return <audio ref={ref} autoPlay data-remote-audio/>
 }
 
-const ThumbnailFallback = ({avatarUrl, name, imgSize, iconSize, iconCircleSize}: {
-    avatarUrl?: string | null;
-    name: string;
-    imgSize: string;
-    iconSize: string;
-    iconCircleSize: string
-}) => {
-    const dominantColor = useDominantColor(avatarUrl || null)
-    return (
-        <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm transition-all duration-300"
-             style={{background: getGradientFromColor(dominantColor)}}>
-            {avatarUrl ? (
-                <img
-                    src={avatarUrl}
-                    alt={name}
-                    className={`${imgSize} rounded-full object-cover ring-2 ring-white/20 shadow-2xl`}
-                />
-            ) : (
-                <div
-                    className={`${iconCircleSize} rounded-full bg-black/10 dark:bg-white/10 border-2 border-black/20 dark:border-white/20 flex items-center justify-center text-foreground/60 shadow-xl`}>
-                    <User className={`${iconSize} text-foreground/60`}/>
-                </div>
-            )}
-        </div>
-    )
+function Control({icon: Icon, label, compactLabel, onClick, active, danger, disabled, badge}: {
+    icon: LucideIcon; label: string; compactLabel?: string; onClick: () => void; active?: boolean; danger?: boolean; disabled?: boolean; badge?: number
+}) {
+    return <button className={`meeting-control ${danger ? 'meeting-danger' : ''}`} onClick={onClick} disabled={disabled}
+        aria-label={label} title={label} aria-pressed={active} data-active={active}>
+        <span className="meeting-control-icon"><Icon size={21}/>{Boolean(badge) && <span className="meeting-badge">{badge}</span>}</span>
+        <span className="meeting-control-label"><span className="meeting-label-wide">{label}</span><span className="meeting-label-small">{compactLabel || label}</span></span>
+    </button>
 }
 
-const SliderControl = ({label, value, min, max, step, onChange, icon}: {
-    label: string; value: number; min: number; max: number; step: number;
-    onChange: (v: number) => void; icon?: React.ReactNode | string
-}) => {
-    return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2.5 text-sm text-foreground/65">
-                    {typeof icon === 'string' ? <span className="text-xs">{icon}</span> : icon}
-                    {label}
-                </span>
-                <span className="text-xs font-mono tabular-nums text-foreground/40 min-w-[3.5rem] text-right">
-                    {value > 0 ? '+' : ''}{value.toFixed(2)}
-                </span>
-            </div>
-            <div className="relative h-1.5">
-                <div className="absolute inset-0 rounded-full bg-muted-foreground/15"/>
-                <input
-                    type="range"
-                    min={min}
-                    max={max}
-                    step={step}
-                    value={value}
-                    onChange={e => onChange(parseFloat(e.target.value))}
-                    className="absolute inset-0 w-full appearance-none cursor-pointer bg-transparent
-                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
-                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground/50
-                        [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:duration-150
-                        [&::-webkit-slider-thumb]:hover:bg-foreground/70 [&::-webkit-slider-thumb]:active:bg-foreground/90
-                        [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5
-                        [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-foreground/50"
-                />
-            </div>
-        </div>
-    )
-}
+const SLIDERS: {key: keyof Omit<EnhancementConfig, 'enabled' | 'autoWhiteBalance'>; es: string; en: string; min: number; max: number}[] = [
+    {key: 'whiteBalance', es: 'Temperatura', en: 'Temperature', min: -1, max: 1},
+    {key: 'brightness', es: 'Brillo', en: 'Brightness', min: -0.5, max: 0.5},
+    {key: 'contrast', es: 'Contraste', en: 'Contrast', min: 0.5, max: 2},
+    {key: 'saturation', es: 'Saturación', en: 'Saturation', min: 0, max: 2},
+    {key: 'gamma', es: 'Gamma', en: 'Gamma', min: 0.5, max: 2.5},
+    {key: 'sharpness', es: 'Nitidez', en: 'Sharpness', min: 0, max: 1.5},
+    {key: 'denoise', es: 'Reducción de ruido', en: 'Noise reduction', min: 0, max: 1},
+]
 
-export default function RoomClient({roomId}: RoomClientProps) {
+export default function RoomClient({roomId}: {roomId: string}) {
     const router = useRouter()
-    const {
-        localStream,
-        screenStream,
-        status,
-        errorMessage,
-        isAudioMuted: localIsAudioMuted,
-        isVideoStopped: localIsVideoStopped,
-        isScreenSharing,
-        toggleAudio,
-        toggleVideo,
-        startScreenShare,
-        stopScreenShare
-    } = useLocalMediaStream()
-
-    const {t, locale} = useI18n()
-
-    const [copied, setCopied] = useState(false)
-    const [now, setNow] = useState(new Date())
-    const [userId, setUserId] = useState('')
-    const [fullName, setFullName] = useState('')
-    const [username, setUsername] = useState('')
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-
-    const [localIsHandRaised, setLocalIsHandRaised] = useState(false)
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [isUrlCopied, setIsUrlCopied] = useState(false)
-    const [isPeopleCollapsed, setIsPeopleCollapsed] = useState(false)
-    const [gridPage, setGridPage] = useState(0)
-    const [enhanceConfig, setEnhanceConfig] = useState<EnhancementConfig>({...DEFAULT_ENHANCEMENT})
-    const [showEnhancePanel, setShowEnhancePanel] = useState(false)
-    const [showReactionPicker, setShowReactionPicker] = useState(false)
+    const {locale, t} = useI18n()
+    const es = locale === 'es'
+    const media = useLocalMediaStream()
+    const [profile, setProfile] = useState<{userId: string; fullName: string; username: string; avatarUrl: string | null} | null>(null)
+    const [auth, setAuth] = useState<'loading' | 'member' | 'guest' | 'error'>('loading')
+    const [guest, setGuest] = useState<{userId: string; fullName: string; username: string; avatarUrl: string | null} | null>(null)
+    const [hand, setHand] = useState(false)
+    const [panel, setPanel] = useState<Panel>(null)
+    const [page, setPage] = useState(0)
+    const [pinned, setPinned] = useState<string | null>(null)
+    const [collapsed, setCollapsed] = useState(false)
+    const [config, setConfig] = useState<EnhancementConfig>({...DEFAULT_ENHANCEMENT})
+    const [reactionsOpen, setReactionsOpen] = useState(false)
+    const [draft, setDraft] = useState('')
+    const [sending, setSending] = useState(false)
+    const [readSequence, setReadSequence] = useState(0)
+    const [notice, setNotice] = useState('')
+    const [audioBlocked, setAudioBlocked] = useState(false)
+    const [now, setNow] = useState(() => Date.now())
+    const [startedAt] = useState(() => Date.now())
     const pickerRef = useRef<HTMLDivElement>(null)
-    const screenShareRequestRef = useRef(false)
-
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-    const [profileLoaded, setProfileLoaded] = useState(false)
-    const [guestState, setGuestState] = useState<'idle' | 'approved'>('idle')
-    const [guestName, setGuestName] = useState('')
-    const [guestAvatar, setGuestAvatar] = useState<string | null>(null)
-    const [guestUserId] = useState(() => `guest-${crypto.randomUUID()}`)
-    const [pinnedShareId, setPinnedShareId] = useState<string | null>(null)
-
-    const localStreamRef = useRef<MediaStream | null>(null)
-    const participantCountRef = useRef(1)
-
-    const {requests, approveRequest, rejectRequest} = useHostRequests(
-        isAuthenticated === true ? roomId : null
-    )
-
-    useEffect(() => {
-        const id = setInterval(() => setNow(new Date()), 1000)
-        return () => clearInterval(id)
-    }, [])
-
-    useEffect(() => {
-        if (!showReactionPicker) return
-        const handleClick = (e: MouseEvent) => {
-            if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-                setShowReactionPicker(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClick)
-        return () => document.removeEventListener('mousedown', handleClick)
-    }, [showReactionPicker])
-
-    useEffect(() => {
-        const supabase = createClient()
-        supabase.auth.getUser().then(({data: {user}}) => {
-            if (user) {
-                setIsAuthenticated(true)
-                setUserId(user.id)
-                supabase
-                    .from('profiles')
-                    .select('full_name, username, avatar_url')
-                    .eq('id', user.id)
-                    .single()
-                    .then(({data}) => {
-                        if (data) {
-                            setFullName(data.full_name || '')
-                            setUsername(data.username || '')
-                            setAvatarUrl(data.avatar_url || null)
-                        }
-                        setProfileLoaded(true)
-                    }, () => setProfileLoaded(true))
-            } else {
-                setIsAuthenticated(false)
-                setProfileLoaded(true)
-            }
-        })
-    }, [])
-
-    useEffect(() => {
-        let keepAliveInterval: ReturnType<typeof setInterval> | undefined
-
-        const handleVisibility = () => {
-            const stream = localStreamRef.current
-            const videoTrack = stream?.getVideoTracks()[0]
-            const count = participantCountRef.current
-
-            if (document.hidden) {
-                if (count <= 1 && videoTrack?.enabled) {
-                    videoTrack.enabled = false
-                } else if (count >= 2) {
-                    keepAliveInterval = setInterval(() => {
-                        navigator.mediaDevices.enumerateDevices().catch(() => {
-                        })
-                    }, 1_000)
-                }
-            } else {
-                if (keepAliveInterval) {
-                    clearInterval(keepAliveInterval)
-                    keepAliveInterval = undefined
-                }
-                if (videoTrack && !videoTrack.enabled) {
-                    videoTrack.enabled = true
-                }
-            }
-        }
-
-        document.addEventListener('visibilitychange', handleVisibility)
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibility)
-            if (keepAliveInterval) clearInterval(keepAliveInterval)
-        }
-    }, [])
-
-    const screenTrack = screenStream?.getVideoTracks()[0] ?? null
-
-    const {enhancedTrack} = useVideoEnhancer(enhanceConfig.enabled ? localStream : null, enhanceConfig)
-
-    const localDisplayStream = useMemo(() => {
-        if (!localStream) return null
-        if (enhancedTrack && enhanceConfig.enabled) {
-            const tracks = [enhancedTrack, ...localStream.getAudioTracks()]
-            return new MediaStream(tracks)
-        }
-        return localStream
-    }, [localStream, enhancedTrack, enhanceConfig.enabled])
-
-    const setLocalVideoRef = useCallback((el: HTMLVideoElement | null) => {
-        if (el && localDisplayStream) {
-            el.srcObject = localDisplayStream
-        }
-    }, [localDisplayStream])
-
-    const isGuestMode = isAuthenticated === false && guestState === 'approved'
-
-    const localAvatarUrl = isGuestMode ? guestAvatar : avatarUrl
-
+    const panelRef = useRef<HTMLElement>(null)
+    const panelTriggerRef = useRef<HTMLElement | null>(null)
+    const chatEndRef = useRef<HTMLDivElement>(null)
+    const shareBusy = useRef(false)
+    const previousParticipants = useRef(new Map<string, ParticipantInfo>())
+    const {enhancedTrack, error: enhancementError} = useVideoEnhancer(config.enabled ? media.localStream : null, config)
+    const identity = guest || profile
     const userInfo = useMemo(() => ({
-        userId: isGuestMode ? guestUserId : userId,
-        fullName: isGuestMode ? guestName : (fullName || ''),
-        username: isGuestMode ? '' : username,
-        avatarUrl: isGuestMode ? guestAvatar : avatarUrl,
-        isVideoMuted: localIsVideoStopped, isAudioMuted: localIsAudioMuted,
-        isEnhanced: enhanceConfig.enabled,
-    }), [userId, fullName, username, avatarUrl, localIsVideoStopped, localIsAudioMuted, isGuestMode, guestName, guestUserId, guestAvatar, enhanceConfig.enabled])
-
-    const shouldConnect = (isAuthenticated === true && profileLoaded) || (isAuthenticated === false && guestState === 'approved')
-
-    const {
-        remoteStreams,
-        remoteScreenStreams,
-        remoteParticipants,
-        remoteReactions,
-        localParticipant,
-        activeScreenShareIds,
-        endRoom,
-        leaveRoom,
-        roomEnded,
-        emitMediaState,
-        emitHandState,
-        emitEnhancementState,
-        emitScreenShareState,
-        emitReaction,
-        replaceVideoTrack,
-        addScreenTrack,
-        removeScreenTrack,
-    } = useWebRTC(
-        roomId,
-        shouldConnect ? localStream : null,
-        screenTrack,
-        userInfo,
-        localIsHandRaised,
-        shouldConnect
-    )
-
+        userId: identity?.userId || '', fullName: identity?.fullName || '', username: identity?.username || '', avatarUrl: identity?.avatarUrl || null,
+        isVideoMuted: media.isVideoStopped, isAudioMuted: media.isAudioMuted, isEnhanced: Boolean(config.enabled && enhancedTrack),
+    }), [identity, media.isVideoStopped, media.isAudioMuted, config.enabled, enhancedTrack])
+    const screenTrack = media.screenStream?.getVideoTracks()[0] || null
+    const call = useWebRTC(roomId, media.localStream, screenTrack, userInfo, hand, Boolean(identity))
+    const closePanel = useCallback(() => {
+        setReadSequence(call.messages.at(-1)?.sequence || 0)
+        setPanel(null)
+        panelTriggerRef.current?.focus()
+    }, [call.messages])
+    const {requests, approveRequest, rejectRequest, error: requestError} = useHostRequests(auth === 'member' && call.localParticipant?.isHost ? roomId : null)
+    const outgoingTrack = config.enabled && enhancedTrack ? enhancedTrack : media.localStream?.getVideoTracks()[0]
     useEffect(() => {
-        localStreamRef.current = localStream
-        participantCountRef.current = 1 + Object.keys(remoteParticipants).length
-    })
-
-    // Shared presentation state always comes from the server snapshot.  Local
-    // tracks change immediately, but the UI reconciles to this state as soon
-    // as the authoritative acknowledgement arrives.
-    const isAudioMuted = localParticipant?.isAudioMuted ?? localIsAudioMuted
-    const isVideoStopped = localParticipant?.isVideoMuted ?? localIsVideoStopped
-    const isHandRaised = localParticipant?.isHandRaised ?? localIsHandRaised
-
-    useEffect(() => {
-        const outgoingTrack = enhanceConfig.enabled ? enhancedTrack : localStream?.getVideoTracks()[0]
-        if (outgoingTrack) replaceVideoTrack(outgoingTrack)
-    }, [enhancedTrack, enhanceConfig.enabled, localStream, replaceVideoTrack])
-
-    useEffect(() => {
-        emitEnhancementState(enhanceConfig.enabled)
-    }, [enhanceConfig.enabled, emitEnhancementState])
-
-    const screenShareParticipants = useMemo(() => {
-        const result: { participant: ParticipantInfo; stream: MediaStream | null }[] = []
-        for (const pid of activeScreenShareIds) {
-            const p = Object.values(remoteParticipants).find(rp => rp.participantId === pid) ||
-                (localParticipant?.participantId === pid ? localParticipant : null)
-            if (!p) continue
-            const stream = p.participantId === localParticipant?.participantId
-                ? screenStream
-                : remoteScreenStreams[p.socketId] ?? null
-            result.push({participant: p, stream})
+        if (outgoingTrack) {
+            outgoingTrack.enabled = !media.isVideoStopped
+            call.replaceVideoTrack(outgoingTrack)
         }
-        return result
-    }, [remoteParticipants, activeScreenShareIds, localParticipant, screenStream, remoteScreenStreams])
+    }, [outgoingTrack, media.isVideoStopped, call.replaceVideoTrack])
+    const localDisplay = useMemo(() => outgoingTrack ? new MediaStream([outgoingTrack]) : media.localStream, [outgoingTrack, media.localStream])
 
-    const isRoomScreenSharing = activeScreenShareIds.length > 0
-
-    // When pinned, only the pinned screen fills the main area; all other
-    // shares move to the bottom carousel.
-    const activePinnedShareId = pinnedShareId && activeScreenShareIds.includes(pinnedShareId)
-        ? pinnedShareId
-        : null
-
-    const mainScreenShares = useMemo(() => {
-        if (activePinnedShareId) {
-            return screenShareParticipants.filter(item => item.participant.participantId === activePinnedShareId)
+    useEffect(() => {
+        let active = true
+        const load = async () => {
+            try {
+                const supabase = createClient()
+                const {data: {user}, error} = await supabase.auth.getUser()
+                if (!active) return
+                if (error && error.name !== 'AuthSessionMissingError') throw error
+                if (!user) { setAuth('guest'); return }
+                const {data} = await supabase.from('profiles').select('full_name, username, avatar_url').eq('id', user.id).single()
+                if (!active) return
+                setProfile({userId: user.id, fullName: data?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || (es ? 'Participante' : 'Participant'), username: data?.username || '', avatarUrl: data?.avatar_url || null})
+                setAuth('member')
+            } catch { if (active) setAuth('error') }
         }
-        return screenShareParticipants.slice(0, 2)
-    }, [screenShareParticipants, activePinnedShareId])
-
-    const additionalScreenShares = useMemo(() => {
-        const visibleIds = new Set(mainScreenShares.map(item => item.participant.participantId))
-        return screenShareParticipants.filter(item => !visibleIds.has(item.participant.participantId))
-    }, [screenShareParticipants, mainScreenShares])
-
+        void load()
+        return () => { active = false }
+    }, [es])
     useEffect(() => {
-        if (pinnedShareId && !activePinnedShareId) setPinnedShareId(null)
-    }, [pinnedShareId, activePinnedShareId])
-
-    useEffect(() => {
-        if (localParticipant?.isScreenSharing) screenShareRequestRef.current = false
-    }, [localParticipant?.isScreenSharing])
-
-    // Stop local screen share if the server no longer lists us as sharing
-    useEffect(() => {
-        if (!isScreenSharing || screenShareRequestRef.current ||
-            activeScreenShareIds.includes(localParticipant?.participantId ?? '')) return
-        stopScreenShare()
-        removeScreenTrack()
-    }, [isScreenSharing, activeScreenShareIds, localParticipant?.participantId, stopScreenShare, removeScreenTrack])
-
-    useEffect(() => {
-        if (roomEnded) {
-            router.push('/dashboard')
-        }
-    }, [roomEnded, router])
-
-    const handleToggleVideo = () => {
-        const newState = toggleVideo()
-        emitMediaState(newState, isAudioMuted)
-    }
-
-    const handleToggleAudio = () => {
-        const newState = toggleAudio()
-        emitMediaState(isVideoStopped, newState)
-    }
-
-    const handleToggleScreenShare = async () => {
-        if (isScreenSharing) {
-            screenShareRequestRef.current = false
-            stopScreenShare()
-            removeScreenTrack()
-            emitScreenShareState(false)
-        } else {
-            screenShareRequestRef.current = true
-            const screenTrack = await startScreenShare(() => {
-                screenShareRequestRef.current = false
-                removeScreenTrack()
-                emitScreenShareState(false)
-            })
-            if (screenTrack) {
-                addScreenTrack(screenTrack)
-                emitScreenShareState(true)
-            } else {
-                screenShareRequestRef.current = false
-            }
-        }
-    }
-
-    const handAudioRef = useRef<HTMLAudioElement | null>(null)
-    const requestAudioRef = useRef<HTMLAudioElement | null>(null)
-    const prevRequestCountRef = useRef(0)
-
-    useEffect(() => {
-        handAudioRef.current = new Audio('/sounds/raise-hand.mp3')
-        requestAudioRef.current = new Audio('/sounds/application-participation.mp3')
+        const timer = setInterval(() => setNow(Date.now()), 1000)
+        return () => clearInterval(timer)
     }, [])
-
     useEffect(() => {
-        if (requests.length > prevRequestCountRef.current && requestAudioRef.current) {
-            requestAudioRef.current.currentTime = 0
-            requestAudioRef.current.play().catch(() => {
-            })
+        if (!notice) return
+        const timer = setTimeout(() => setNotice(''), 5000)
+        return () => clearTimeout(timer)
+    }, [notice])
+    useEffect(() => {
+        const close = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') { closePanel(); setReactionsOpen(false) }
         }
-        prevRequestCountRef.current = requests.length
-    }, [requests.length])
-
-    const handleToggleHand = () => {
-        const newState = !isHandRaised
-        setLocalIsHandRaised(newState)
-        emitHandState(newState)
-        if (newState && handAudioRef.current) {
-            handAudioRef.current.currentTime = 0
-            handAudioRef.current.play().catch(() => {
-            })
+        document.addEventListener('keydown', close)
+        return () => document.removeEventListener('keydown', close)
+    }, [closePanel])
+    useEffect(() => {
+        if (!panel) return
+        panelRef.current?.focus()
+    }, [panel])
+    useEffect(() => {
+        if (!reactionsOpen) return
+        const close = (event: PointerEvent) => { if (!pickerRef.current?.contains(event.target as Node)) setReactionsOpen(false) }
+        document.addEventListener('pointerdown', close)
+        return () => document.removeEventListener('pointerdown', close)
+    }, [reactionsOpen])
+    useEffect(() => {
+        if (panel === 'chat') chatEndRef.current?.scrollIntoView({block: 'end'})
+    }, [call.messages, panel])
+    useEffect(() => {
+        if (call.roomEnded) router.push(auth === 'guest' ? '/' : '/dashboard')
+    }, [call.roomEnded, router, auth])
+    useEffect(() => {
+        const previous = previousParticipants.current
+        const next = new Map(call.roomState.participants.map(person => [person.participantId, person]))
+        for (const [id, person] of next) {
+            if (id === userInfo.userId) continue
+            const old = previous.get(id)
+            if (person.isHandRaised && !old?.isHandRaised) {
+                setNotice(`${person.fullName} ${es ? 'levantó la mano' : 'raised their hand'}`)
+                void new Audio('/sounds/raise-hand.mp3').play().catch(() => {})
+            } else if (!old && previous.size) setNotice(`${person.fullName} ${es ? 'se unió a la reunión' : 'joined the meeting'}`)
+            else if (old && !old.isConnected && person.isConnected) setNotice(`${person.fullName} ${es ? 'se reconectó' : 'reconnected'}`)
         }
+        for (const [id, person] of previous) if (!next.has(id) && id !== userInfo.userId && next.size) setNotice(`${person.fullName} ${es ? 'salió de la reunión' : 'left the meeting'}`)
+        previousParticipants.current = next
+    }, [call.roomState, userInfo.userId, es])
+    const previousRequests = useRef(0)
+    useEffect(() => {
+        if (requests.length > previousRequests.current) {
+            setNotice(es ? 'Alguien espera para entrar. Revisa Participantes.' : 'Someone is waiting to join. Open People.')
+            void new Audio('/sounds/application-participation.mp3').play().catch(() => {})
+        }
+        previousRequests.current = requests.length
+    }, [requests, es])
+    const onAudioBlocked = useCallback(() => setAudioBlocked(true), [])
+    const openPanel = (next: Panel) => {
+        panelTriggerRef.current = document.activeElement as HTMLElement
+        setPanel(current => current === next ? null : next)
+        if (next === 'chat' || panel === 'chat') setReadSequence(call.messages.at(-1)?.sequence || 0)
+    }
+    const copy = async (url: boolean) => {
+        try { await navigator.clipboard.writeText(url ? window.location.href : roomId); setNotice(es ? 'Enlace copiado' : 'Copied to clipboard') }
+        catch { setNotice(es ? 'No se pudo copiar el enlace. Cópialo desde la barra de direcciones.' : 'Could not copy. Copy the link from the address bar.') }
+    }
+    const toggleScreen = async () => {
+        if (shareBusy.current) return
+        if (media.isScreenSharing) { media.stopScreenShare(); return }
+        shareBusy.current = true
+        try {
+            const track = await media.startScreenShare()
+            if (!track) setNotice(es ? 'No se inició la presentación. Puedes volver a intentarlo.' : 'Presentation did not start. You can try again.')
+        } finally { shareBusy.current = false }
+    }
+    const submitMessage = async (event: React.FormEvent) => {
+        event.preventDefault()
+        if (sending || !draft.trim()) return
+        setSending(true)
+        const body = draft.trim()
+        const ok = await call.sendMessage(body)
+        if (ok) setDraft('')
+        else setNotice(es ? 'No se pudo confirmar el mensaje. El texto sigue aquí para reintentarlo.' : 'Message was not confirmed. Your text is here to retry.')
+        setSending(false)
+    }
+    const leave = () => { media.stopScreenShare(); call.leaveRoom(); router.push(auth === 'guest' ? '/' : '/dashboard') }
+    const endForEveryone = async () => {
+        if (!window.confirm(es ? '¿Finalizar la reunión para todos?' : 'End the meeting for everyone?')) return
+        if (!await call.endRoom()) setNotice(es ? 'No se pudo finalizar la reunión. Reintenta cuando se restablezca la conexión.' : 'Could not end the meeting. Retry when connected.')
     }
 
-    const handleReact = (emoji: string) => {
-        emitReaction(emoji)
-    }
+    if (auth === 'loading' || media.status === 'requesting') return <div className="meeting-room meeting-loading"><Loader2 className="meeting-spinner"/><h1>{t('room.loading_devices')}</h1><p>MeetMesh</p></div>
+    if (auth === 'error' || media.status === 'error') return <div className="meeting-room meeting-loading"><AlertCircle/><h1>{es ? 'No pudimos preparar la reunión' : 'Could not prepare the meeting'}</h1><p>{media.errorMessage ? (es ? 'Comprueba los permisos de cámara y micrófono del navegador y que otra aplicación no los esté usando.' : media.errorMessage) : (es ? 'No se pudo verificar tu sesión.' : 'Could not verify your session.')}</p><button onClick={() => window.location.reload()}>{es ? 'Reintentar' : 'Try again'}</button>{media.status === 'error' && auth !== 'error' && <button onClick={media.joinWithoutDevices}>{es ? 'Entrar sin cámara ni micrófono' : 'Join without camera or microphone'}</button>}<Link href="/">{es ? 'Volver al inicio' : 'Back to home'}</Link></div>
+    if (auth === 'guest' && !guest) return <div className="meeting-lobby"><GuestLobby roomId={roomId} localStream={media.localStream} status={media.status} errorMessage={media.errorMessage}
+        isVideoStopped={media.isVideoStopped} isAudioMuted={media.isAudioMuted} toggleVideo={media.toggleVideo} toggleAudio={media.toggleAudio}
+        onApproved={(name, avatar) => setGuest({userId: `guest-${crypto.randomUUID()}`, fullName: name, username: '', avatarUrl: avatar})} onRejected={() => setGuest(null)}/></div>
 
-    const handleLeaveRoom = () => {
-        if (localParticipant?.isHost) endRoom()
-        else leaveRoom()
-        router.push('/dashboard')
-    }
+    const remotes = Object.values(call.remoteParticipants)
+    const participants = call.roomState.participants
+    const total = 1 + remotes.length
+    const pages = Math.ceil(total / PAGE_SIZE)
+    const safePage = Math.min(page, pages - 1)
+    const tiles = [{id: userInfo.userId, local: true, person: call.localParticipant}, ...remotes.map(person => ({id: person.participantId, local: false, person}))]
+    const visibleTiles = tiles.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+    const shares = participants.filter(person => person.participantId === userInfo.userId ? media.isScreenSharing : person.isScreenSharing)
+    const activePin = shares.some(person => person.participantId === pinned) ? pinned : null
+    const mainShares = activePin ? shares.filter(person => person.participantId === activePin) : shares.slice(0, 2)
+    const extraShares = shares.filter(person => !mainShares.includes(person))
+    const seconds = Math.floor((now - startedAt) / 1000)
+    const duration = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
+    const unread = panel === 'chat' ? 0 : call.messages.filter(message => message.sequence > readSequence && message.participantId !== userInfo.userId).length
+    const connectionLabel = call.connectionStatus === 'connected' ? (es ? 'En la reunión' : 'In the meeting') : call.connectionStatus === 'connecting' ? (es ? 'Conectando' : 'Connecting') : (es ? 'Reconectando' : 'Reconnecting')
+    const renderTile = (local: boolean, person: ParticipantInfo | null, id: string) => <MeetingVideo key={id}
+        stream={local ? localDisplay : call.remoteStreams[person!.socketId]} name={local ? userInfo.fullName : person!.fullName || t('room.participant')}
+        avatar={local ? userInfo.avatarUrl : person?.avatarUrl} local={local} host={person?.isHost}
+        videoOff={local ? media.isVideoStopped : person?.isVideoMuted} audioOff={local ? media.isAudioMuted : person?.isAudioMuted}
+        hand={local ? hand : person?.isHandRaised} status={local ? 'connected' : call.peerStates[person!.socketId] || (person?.isConnected ? 'connecting' : 'disconnected')}/>
 
-    const allReactions = remoteReactions
-
-    function handleCopyRoomId() {
-        navigator.clipboard.writeText(roomId)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
-
-    function handleCopyUrl() {
-        navigator.clipboard.writeText(window.location.href)
-        setIsUrlCopied(true)
-        setTimeout(() => setIsUrlCopied(false), 2000)
-    }
-
-    function formatHeaderDate(d: Date): string {
-        const localeStr = locale === 'es' ? 'es-ES' : 'en-US'
-        return d.toLocaleDateString(localeStr, {weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric'})
-    }
-
-    function formatHeaderTime(d: Date): string {
-        return d.toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        })
-    }
-
-    if (isAuthenticated === null) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-                <div className="relative mb-8">
-                    <div
-                        className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
-                        <Loader2 className="w-10 h-10 text-brand animate-spin"/>
-                    </div>
-                </div>
-                <h2 className="text-xl font-semibold mb-2">{t('room.loading_devices')}</h2>
-                <div className="flex gap-1.5 mt-4">
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{animationDelay: '0ms'}}/>
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
-                          style={{animationDelay: '150ms'}}/>
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
-                          style={{animationDelay: '300ms'}}/>
-                </div>
-            </div>
-        )
-    }
-
-    if (isAuthenticated === false && guestState === 'idle') {
-        return (
-            <GuestLobby
-                roomId={roomId}
-                localStream={localStream}
-                status={status}
-                errorMessage={errorMessage}
-                isVideoStopped={isVideoStopped}
-                isAudioMuted={isAudioMuted}
-                toggleVideo={toggleVideo}
-                toggleAudio={toggleAudio}
-                onApproved={(name, avatar) => {
-                    setGuestName(name)
-                    setGuestAvatar(avatar)
-                    setGuestState('approved')
-                }}
-                onRejected={() => {
-                    setGuestState('idle')
-                }}
-            />
-        )
-    }
-
-    if (status === 'requesting') {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-                <div className="relative mb-8">
-                    <div
-                        className="w-20 h-20 rounded-2xl bg-brand/10 flex items-center justify-center border border-brand/20">
-                        <Loader2 className="w-10 h-10 text-brand animate-spin"/>
-                    </div>
-                </div>
-                <h2 className="text-xl font-semibold mb-2">{t('room.loading_devices')}</h2>
-                <div className="flex gap-1.5 mt-4">
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce" style={{animationDelay: '0ms'}}/>
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
-                          style={{animationDelay: '150ms'}}/>
-                    <span className="w-2 h-2 rounded-full bg-brand/40 animate-bounce"
-                          style={{animationDelay: '300ms'}}/>
-                </div>
-            </div>
-        )
-    }
-
-    if (status === 'error') {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">
-                <div className="flex flex-col items-center max-w-sm text-center space-y-6">
-                    <div
-                        className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/20">
-                        <AlertCircle className="w-8 h-8 text-destructive"/>
-                    </div>
-                    <div className="space-y-2">
-                        <h2 className="text-xl font-semibold">{t('room.hardware_error')}</h2>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{errorMessage}</p>
-                    </div>
-                </div>
-            </div>
-        )
-    }
-
-    const totalParticipants = 1 + Object.keys(remoteParticipants).length
-
-    const getGridDimensions = (count: number) => {
-        if (count <= 1) return {cols: 1, rows: 1}
-        if (count <= 2) return {cols: 2, rows: 1}
-        if (count <= 3) return {cols: 3, rows: 1}
-        if (count <= 4) return {cols: 2, rows: 2}
-        if (count <= 6) return {cols: 3, rows: 2}
-        return {cols: 3, rows: 3}
-    }
-
-    const allParticipants: { id: string; type: 'local' | 'remote'; stream?: MediaStream; info?: ParticipantInfo }[] = [
-        {id: 'local', type: 'local'},
-        ...Object.entries(remoteStreams)
-            .filter(([peerId]) => remoteParticipants[peerId])
-            .map(([peerId, stream]) => ({
-                id: peerId,
-                type: 'remote' as const,
-                stream,
-                info: remoteParticipants[peerId]
-            }))
-    ]
-
-    const totalGridPages = Math.ceil(allParticipants.length / MAX_GRID_PAGE_SIZE)
-    const safeGridPage = Math.min(gridPage, Math.max(0, totalGridPages - 1))
-    const startIdx = safeGridPage * MAX_GRID_PAGE_SIZE
-    const pageParticipants = allParticipants.slice(startIdx, startIdx + MAX_GRID_PAGE_SIZE)
-    const {cols, rows} = getGridDimensions(pageParticipants.length)
-
-    const displayName = isGuestMode ? guestName : (fullName || t('room.you'))
-    const displayUsername = isGuestMode ? '' : (username ? `@${username}` : '')
-
-    const isRightPanelVisible = isRoomScreenSharing
-        ? (!isPeopleCollapsed || isSidebarOpen || showEnhancePanel)
-        : (isSidebarOpen || showEnhancePanel)
-
-    const renderPeopleThumbnails = (containerClassName = 'shrink-0', isHorizontal = false) => (
-        <div className={`${containerClassName} border-t border-border/40 flex flex-col`}>
-            {!isHorizontal && (
-                <div className="flex items-center justify-between px-4 py-2 border-b border-border/40">
-                    <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5"/>
-                        {t('room.participants')} ({Object.keys(remoteParticipants).length + 1})
-                    </span>
-                    <button
-                        onClick={() => setIsPeopleCollapsed(true)}
-                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                        {t('room.hide_people')}
-                        <ChevronDown className="w-3.5 h-3.5"/>
-                    </button>
-                </div>
-            )}
-            <div
-                className={isHorizontal ? 'flex-1 flex items-center justify-center gap-3 px-3 overflow-hidden' : 'overflow-y-auto p-3 space-y-3'}>
-                {isHorizontal ? (
-                    <>
-                        <div
-                            className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
-                            <video
-                                autoPlay playsInline muted
-                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                                    isVideoStopped ? 'opacity-0' : 'opacity-100'
-                                } scale-x-[-1]`}
-                                ref={setLocalVideoRef}
-                            />
-                            {isVideoStopped && (
-                                <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName} imgSize="w-18 h-18"
-                                                   iconSize="w-6 h-6" iconCircleSize="w-12 h-12"/>
-                            )}
-                            <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
-                                <span
-                                    className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
-                                    {displayName}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                    {isHandRaised && (
-                                        <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                            <Hand className="w-3 h-3"/>
-                                        </span>
-                                    )}
-                                    {isAudioMuted && (
-                                        <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                            <MicOff className="w-3 h-3"/>
-                                        </span>
-                                    )}
-                                    {isScreenSharing && (
-                                        <span className="bg-brand/80 p-0.5 rounded text-white">
-                                            <MonitorUp className="w-3 h-3"/>
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+    return <div className="meeting-room" lang={locale}>
+        <header className="meeting-header">
+            <Link className="meeting-brand" href="/" aria-label="MeetMesh"><svg width="29" height="24" viewBox="0 0 29 24" fill="none" aria-hidden="true"><rect x="1" y="2" width="18" height="18" rx="6" stroke="currentColor" strokeWidth="1.7"/><rect x="10" y="5" width="18" height="18" rx="6" stroke="currentColor" strokeWidth="1.7"/></svg><span>MeetMesh</span></Link>
+            <div className="meeting-heading"><h1>{es ? 'Sala de reunión' : 'Meeting room'}</h1><button onClick={() => void copy(false)} title={es ? 'Copiar código' : 'Copy room code'}>{roomId}<Copy size={12}/></button></div>
+            <div className="meeting-header-status" role="status" data-status={call.connectionStatus}><span className="meeting-status-dot"/>{connectionLabel}<span className="meeting-duration">{duration}</span></div>
+            <button className="meeting-invite" onClick={() => void copy(true)}><Share2 size={16}/><span>{es ? 'Invitar' : 'Invite'}</span></button>
+        </header>
+        {call.connectionStatus !== 'connected' && <div className="meeting-connection-banner" role="status"><WifiOff size={16}/><span>{es ? 'Restableciendo la conexión. Tus controles se sincronizarán al volver.' : 'Restoring connection. Your controls will sync when reconnected.'}</span><button onClick={call.reconnect}>{es ? 'Reintentar' : 'Retry'}</button></div>}
+        {call.connectionStatus === 'connected' && Object.values(call.peerStates).some(state => state === 'failed') && <div className="meeting-connection-banner" role="status"><WifiOff size={16}/><span>{es ? 'No se pudo recuperar una conexión de audio y video.' : 'An audio and video connection could not be recovered.'}</span><button onClick={call.reconnect}>{es ? 'Reconectar' : 'Reconnect'}</button></div>}
+        {audioBlocked && <div className="meeting-connection-banner"><Mic size={16}/><button onClick={() => {
+            void Promise.all(Array.from(document.querySelectorAll<HTMLAudioElement>('[data-remote-audio]')).map(audio => audio.play())).then(() => setAudioBlocked(false)).catch(() => {})
+        }}>{es ? 'Haz clic para escuchar la reunión' : 'Click to hear the meeting'}</button></div>}
+        <div className="meeting-body">
+            <main className="meeting-main" aria-label={es ? 'Videos de la reunión' : 'Meeting videos'}>
+                <div className="meeting-stage-heading"><span>{shares.length ? <MonitorUp size={15}/> : <Users size={15}/>}{shares.length ? (es ? 'Presentación en curso' : 'Presentation in progress') : `${es ? 'Participantes' : 'Participants'} · ${total}`}</span><span>{shares.length ? shares.map(person => person.fullName).join(', ') : es ? 'Un espacio para conversar' : 'A space for conversation'}</span></div>
+                {shares.length ? <>
+                    <div className="meeting-share-grid" data-count={mainShares.length}>{mainShares.map(person => <div className="meeting-share-wrap" key={person.participantId}>
+                        <MeetingVideo stream={person.participantId === userInfo.userId ? media.screenStream : call.remoteScreenStreams[person.socketId]}
+                            name={person.fullName} screen local={person.participantId === userInfo.userId} status={person.participantId === userInfo.userId ? 'connected' : call.peerStates[person.socketId]}/>
+                        {shares.length > 1 && <button className="meeting-pin" aria-label={activePin === person.participantId ? (es ? 'Desfijar pantalla' : 'Unpin screen') : (es ? 'Fijar pantalla' : 'Pin screen')}
+                            aria-pressed={activePin === person.participantId} onClick={() => setPinned(current => current === person.participantId ? null : person.participantId)}><Pin size={16}/></button>}
+                    </div>)}</div>
+                    {extraShares.length > 0 && <div className="meeting-extra-shares">{extraShares.map(person => <button key={person.participantId} onClick={() => setPinned(person.participantId)}><Pin size={13}/>{person.fullName}</button>)}</div>}
+                    <button className="meeting-strip-toggle" onClick={() => setCollapsed(current => !current)}>{collapsed ? (es ? 'Mostrar participantes' : 'Show participants') : (es ? 'Ocultar participantes' : 'Hide participants')} · {total}</button>
+                    {!collapsed && <div className="meeting-strip">{tiles.map(tile => renderTile(tile.local, tile.person, tile.id))}</div>}
+                </> : <div className="meeting-video-grid" data-count={visibleTiles.length}>{visibleTiles.map(tile => renderTile(tile.local, tile.person, tile.id))}</div>}
+                {total === 1 && !shares.length && <div className="meeting-alone"><span>{es ? 'La sala está lista. Invita a alguien a conversar.' : 'The room is ready. Invite someone to the conversation.'}</span><button onClick={() => void copy(true)}><Copy size={14}/>{es ? 'Copiar invitación' : 'Copy invite link'}</button></div>}
+                {pages > 1 && !shares.length && <nav className="meeting-pagination" aria-label={es ? 'Páginas de participantes' : 'Participant pages'}><button disabled={!safePage} aria-label={es ? 'Página anterior' : 'Previous page'} onClick={() => setPage(safePage - 1)}><ChevronLeft size={18}/></button><span>{safePage + 1} / {pages}</span><button disabled={safePage === pages - 1} aria-label={es ? 'Página siguiente' : 'Next page'} onClick={() => setPage(safePage + 1)}><ChevronRight size={18}/></button></nav>}
+            </main>
+            {panel && <>
+                <button className="meeting-panel-scrim" onClick={closePanel} aria-label={es ? 'Cerrar panel' : 'Close panel'}/>
+                <aside className="meeting-panel" ref={panelRef} tabIndex={-1} aria-label={panel === 'chat' ? 'Chat' : panel === 'people' ? t('room.participants') : t('room.enhance_title')}>
+                    <div className="meeting-panel-header"><h2>{panel === 'chat' ? (es ? 'Chat de la reunión' : 'Meeting chat') : panel === 'people' ? `${t('room.participants')} · ${total}` : (es ? 'Ajustes de imagen' : 'Image settings')}</h2><button aria-label={es ? 'Cerrar panel' : 'Close panel'} onClick={closePanel}><X size={19}/></button></div>
+                    {panel === 'people' && <div className="meeting-panel-scroll">
+                        <p className="meeting-panel-description">{es ? 'En esta conversación' : 'In this conversation'}</p>
+                        <ul className="meeting-people">{tiles.map(({id, local, person}) => <li key={id} data-participant-id={id} data-audio-muted={local ? media.isAudioMuted : person?.isAudioMuted} data-video-muted={local ? media.isVideoStopped : person?.isVideoMuted} data-hand-raised={local ? hand : person?.isHandRaised}>
+                            <span className="meeting-person-avatar">{(local ? userInfo.avatarUrl : person?.avatarUrl) ? <img src={(local ? userInfo.avatarUrl : person?.avatarUrl)!} alt=""/> : (local ? userInfo.fullName : person?.fullName)?.slice(0, 1).toUpperCase()}</span>
+                            <span className="meeting-person-name"><strong>{local ? userInfo.fullName : person?.fullName}{local && ` (${es ? 'tú' : 'you'})`}</strong><small>{!local && !person?.isConnected ? (es ? 'Reconectando…' : 'Reconnecting…') : person?.isHost ? (es ? 'Anfitrión' : 'Host') : (es ? 'Participante' : 'Participant')}</small></span>
+                            {(local ? hand : person?.isHandRaised) && <Hand size={16} className="meeting-hand"/>}
+                            {(local ? media.isAudioMuted : person?.isAudioMuted) ? <MicOff size={16}/> : <Mic size={16}/>}
+                            {(local ? media.isVideoStopped : person?.isVideoMuted) ? <VideoOff size={16}/> : <Video size={16}/>}
+                        </li>)}</ul>
+                        {requestError && <p className="meeting-error" role="alert">{requestError}</p>}
+                        {requests.length > 0 && <section className="meeting-requests"><h3>{es ? 'Esperando para entrar' : 'Waiting to join'} · {requests.length}</h3>{requests.map(request => <div key={request.id}><strong>{request.guest_name}</strong><div><button onClick={() => void rejectRequest(request.id)}>{es ? 'Rechazar' : 'Decline'}</button><button onClick={() => void approveRequest(request.id)}>{es ? 'Admitir' : 'Admit'}</button></div></div>)}</section>}
+                        <button className="meeting-panel-action" onClick={() => void copy(true)}><Share2 size={16}/>{es ? 'Compartir invitación' : 'Share invitation'}</button>
+                        {call.localParticipant?.isHost && <button className="meeting-end-all" disabled={call.connectionStatus !== 'connected'} onClick={() => void endForEveryone()}><PhoneOff size={16}/>{es ? 'Finalizar para todos' : 'End for everyone'}</button>}
+                    </div>}
+                    {panel === 'chat' && <>
+                        <p className="meeting-panel-description meeting-chat-description">{es ? 'Los mensajes son visibles para todos y se conservan mientras la sala está activa.' : 'Messages are visible to everyone and kept while the room is active.'}</p>
+                        <div className="meeting-chat-messages" role="log" aria-label={es ? 'Mensajes' : 'Messages'} aria-live="polite">
+                            {!call.messages.length && <div className="meeting-chat-empty"><MessageSquare size={27}/><h3>{es ? 'La conversación sigue aquí' : 'Keep the conversation going'}</h3><p>{es ? 'Comparte una idea, un enlace o una pregunta con la sala.' : 'Share an idea, a link or a question with the room.'}</p></div>}
+                            {call.messages.map(message => <article key={message.id} className="meeting-message" data-own={message.participantId === userInfo.userId}><div><strong>{message.fullName || (es ? 'Participante' : 'Participant')}</strong><time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'})}</time></div><p>{message.body}</p></article>)}<div ref={chatEndRef}/>
                         </div>
-
-                        {Object.entries(remoteStreams).map(([peerId, stream]) => {
-                            const info = remoteParticipants[peerId]
-                            if (!info) return null
-                            const remoteName = info.fullName || t('room.participant')
-                            const isVideoPlaying = !info.isVideoMuted
-                            return (
-                                <div key={peerId}
-                                     className="relative h-4/5 aspect-video rounded-lg overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80 shrink-0">
-                                    <video
-                                        autoPlay playsInline
-                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
-                                        ref={el => {
-                                            if (el) el.srcObject = stream
-                                        }}
-                                    />
-                                    {!isVideoPlaying && (
-                                        <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName}
-                                                           imgSize="w-12 h-12" iconSize="w-6 h-6"
-                                                           iconCircleSize="w-12 h-12"/>
-                                    )}
-                                    <div
-                                        className="absolute bottom-1 left-1 right-1 flex items-center justify-between z-10">
-                                        <span
-                                            className="bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] text-white truncate max-w-[70%]">
-                                            {remoteName}
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            {info.isHandRaised && (
-                                                <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                                    <Hand className="w-3 h-3"/>
-                                                </span>
-                                            )}
-                                            {info.isAudioMuted && (
-                                                <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                                    <MicOff className="w-3 h-3"/>
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-
-                        <button
-                            onClick={() => setIsPeopleCollapsed(true)}
-                            className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-card/80 hover:bg-card border border-border/40 rounded-lg px-3 py-1.5 transition-colors"
-                        >
-                            {t('room.hide_people')}
-                            <ChevronDown className="w-3.5 h-3.5"/>
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <div
-                            className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
-                            <div className="relative" style={{paddingBottom: '56.25%'}}>
-                                <video
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                                        isVideoStopped ? 'opacity-0' : 'opacity-100'
-                                    } scale-x-[-1]`}
-                                    ref={setLocalVideoRef}
-                                />
-                                {isVideoStopped && (
-                                    <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName} imgSize="w-22 h-22"
-                                                       iconSize="w-5 h-5" iconCircleSize="w-10 h-10"/>
-                                )}
-                            </div>
-                            <div
-                                className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
-                                <span
-                                    className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
-                                    {displayName}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                    {isHandRaised && (
-                                        <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                            <Hand className="w-3 h-3"/>
-                                        </span>
-                                    )}
-                                    {isAudioMuted && (
-                                        <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                            <MicOff className="w-3 h-3"/>
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {Object.entries(remoteStreams).map(([peerId, stream]) => {
-                            const info = remoteParticipants[peerId]
-                            if (!info) return null
-                            const remoteName = info.fullName || t('room.participant')
-                            const isVideoPlaying = !info.isVideoMuted
-                            return (
-                                <div key={peerId}
-                                     className="relative w-full rounded-xl overflow-hidden shadow-md ring-1 ring-border/40 bg-card/80">
-                                    <div className="relative" style={{paddingBottom: '56.25%'}}>
-                                        <video
-                                            autoPlay
-                                            playsInline
-                                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isVideoPlaying ? 'opacity-100' : 'opacity-0'}`}
-                                            ref={el => {
-                                                if (el) el.srcObject = stream
-                                            }}
-                                        />
-                                        {!isVideoPlaying && (
-                                            <ThumbnailFallback avatarUrl={info.avatarUrl} name={remoteName}
-                                                               imgSize="w-10 h-10" iconSize="w-5 h-5"
-                                                               iconCircleSize="w-10 h-10"/>
-                                        )}
-                                    </div>
-                                    <div
-                                        className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between z-10">
-                                        <span
-                                            className="bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white truncate max-w-[65%]">
-                                            {remoteName}
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            {info.isHandRaised && (
-                                                <span className="bg-amber-500/80 p-0.5 rounded text-white">
-                                                    <Hand className="w-3 h-3"/>
-                                                </span>
-                                            )}
-                                            {info.isAudioMuted && (
-                                                <span className="bg-red-500/80 p-0.5 rounded text-white">
-                                                    <MicOff className="w-3 h-3"/>
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </>
-                )}
-            </div>
+                        <form className="meeting-composer" onSubmit={event => void submitMessage(event)}><label className="sr-only" htmlFor="meeting-message">{es ? 'Escribe un mensaje' : 'Write a message'}</label><textarea id="meeting-message" placeholder={es ? 'Escribe un mensaje…' : 'Write a message…'} value={draft} onChange={event => setDraft(event.target.value)} maxLength={4000} disabled={sending} rows={2}
+                            onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {event.preventDefault(); event.currentTarget.form?.requestSubmit()} }}/><div><small>{es ? 'Enter para enviar · Mayús + Enter para nueva línea' : 'Enter to send · Shift + Enter for a new line'}</small><button type="submit" aria-label={es ? 'Enviar mensaje' : 'Send message'} disabled={sending || !draft.trim() || call.connectionStatus !== 'connected'}>{sending ? <Loader2 size={17} className="meeting-spinner"/> : <Send size={17}/>}</button></div></form>
+                    </>}
+                    {panel === 'effects' && <div className="meeting-panel-scroll meeting-effects"><p className="meeting-panel-description">{es ? 'Ajusta tu cámara. Los demás verán la misma imagen.' : 'Adjust your camera. Everyone sees the same image.'}</p>
+                        <label className="meeting-switch"><span>{es ? 'Mejorar imagen' : 'Enhance image'}</span><input type="checkbox" checked={config.enabled} disabled={!media.localStream?.getVideoTracks().length} onChange={event => setConfig(current => ({...current, enabled: event.target.checked}))}/></label>
+                        {enhancementError && <p className="meeting-error" role="status">{es ? 'La mejora no está disponible en este navegador. Se sigue enviando tu cámara original.' : enhancementError}</p>}
+                        <fieldset disabled={!config.enabled}><label className="meeting-switch"><span>{es ? 'Balance de blancos automático' : 'Auto white balance'}</span><input type="checkbox" checked={config.autoWhiteBalance} onChange={event => setConfig(current => ({...current, autoWhiteBalance: event.target.checked}))}/></label>
+                            {SLIDERS.map(slider => <label className="meeting-slider" key={slider.key}><span>{es ? slider.es : slider.en}<output>{config[slider.key].toFixed(2)}</output></span><input type="range" min={slider.min} max={slider.max} step={0.05} value={config[slider.key]} disabled={slider.key === 'whiteBalance' && config.autoWhiteBalance} onChange={event => setConfig(current => ({...current, [slider.key]: Number(event.target.value)}))}/></label>)}
+                        </fieldset><button className="meeting-panel-action" onClick={() => setConfig({...DEFAULT_ENHANCEMENT, enabled: config.enabled})}><RotateCcw size={15}/>{es ? 'Restablecer ajustes' : 'Reset adjustments'}</button>
+                    </div>}
+                </aside>
+            </>}
         </div>
-    )
-
-    return (
-        <div className="flex flex-col h-screen bg-background">
-
-            <header
-                className="shrink-0 flex items-center justify-between bg-background/80 backdrop-blur-xl border-b border-border/40 h-12 z-30 px-4">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5"/>
-                    <span className="tabular-nums">{formatHeaderDate(now)} - {formatHeaderTime(now)}</span>
-                    <span className="w-px h-3 bg-border"/>
-                    <button
-                        onClick={handleCopyRoomId}
-                        className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer font-mono tracking-wider"
-                    >
-                        {roomId}
-                        {copied ? <Check className="w-3 h-3 text-green-500"/> : <Copy className="w-3 h-3"/>}
-                    </button>
-                    <span className="w-px h-3 bg-border"/>
-                    <span className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5"/>
-                        {totalParticipants}
-                    </span>
+        <footer className="meeting-footer">
+            <div className="meeting-footer-info"><span><Wifi size={14}/>{connectionLabel}</span><span>{new Date(now).toLocaleTimeString(locale, {hour: '2-digit', minute: '2-digit'})} · {total} {es ? 'en la sala' : 'in the room'}</span></div>
+            <div className="meeting-controls">
+                <Control icon={media.isAudioMuted ? MicOff : Mic} compactLabel={es ? 'Micro' : 'Mic'} label={media.isAudioMuted ? (es ? 'Activar micro' : 'Unmute') : (es ? 'Silenciar' : 'Mute')} active={!media.isAudioMuted} onClick={media.toggleAudio} disabled={!media.localStream?.getAudioTracks().length}/>
+                <Control icon={media.isVideoStopped ? VideoOff : Video} compactLabel={es ? 'Cámara' : 'Camera'} label={media.isVideoStopped ? (es ? 'Activar cámara' : 'Start camera') : (es ? 'Apagar cámara' : 'Stop camera')} active={!media.isVideoStopped} onClick={media.toggleVideo} disabled={!media.localStream?.getVideoTracks().length}/>
+                <span className="meeting-control-divider"/>
+                <Control icon={MonitorUp} compactLabel={es ? 'Pantalla' : 'Screen'} label={media.isScreenSharing ? (es ? 'Dejar de compartir' : 'Stop sharing') : (es ? 'Compartir' : 'Present')} active={media.isScreenSharing} onClick={() => void toggleScreen()} disabled={!navigator.mediaDevices?.getDisplayMedia}/>
+                <Control icon={Hand} compactLabel={es ? 'Mano' : 'Hand'} label={hand ? (es ? 'Bajar mano' : 'Lower hand') : (es ? 'Levantar mano' : 'Raise hand')} active={hand} onClick={() => setHand(current => !current)}/>
+                <div className="meeting-reaction-control" ref={pickerRef}><Control icon={SmilePlus} compactLabel={es ? 'Reacción' : 'React'} label={es ? 'Reacciones' : 'Reactions'} active={reactionsOpen} onClick={() => setReactionsOpen(current => !current)}/>
+                    {reactionsOpen && <div className="meeting-reaction-picker" role="group" aria-label={es ? 'Reacciones' : 'Reactions'}>{EMOJI_LIST.map(({emoji, label}) => <button key={emoji} aria-label={label} onClick={() => {call.emitReaction(emoji); setReactionsOpen(false)}}><img src={getEmojiUrl(emoji)} alt="" draggable={false}/></button>)}</div>}
                 </div>
-                {isRoomScreenSharing && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <MonitorUp className="w-3.5 h-3.5 text-brand"/>
-                        <span>
-                            {screenShareParticipants.map(p => p.participant.fullName || t('room.participant')).join(', ')} · {t('room.sharing_screen')}
-                        </span>
-                    </div>
-                )}
-            </header>
-
-            <div className="flex-1 flex overflow-hidden">
-                <div className="flex-1 flex flex-col min-w-0">
-                    <div className="flex-1 flex min-h-0">
-                        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
-                            {isRoomScreenSharing ? (
-                                <div className="flex-1 min-h-0 min-w-0 flex flex-col p-3 gap-3 overflow-hidden">
-                                    {mainScreenShares.length > 0 && (
-                                        <div
-                                            className={`flex-1 min-h-0 min-w-0 grid gap-3 ${
-                                                mainScreenShares.length === 2
-                                                    ? 'grid-cols-1 md:grid-cols-2 grid-rows-2 md:grid-rows-1'
-                                                    : 'grid-cols-1 grid-rows-1'
-                                            }`}
-                                        >
-                                            {mainScreenShares.map(({participant, stream}) => (
-                                                <ScreenShareTile
-                                                    key={participant.participantId}
-                                                    stream={stream}
-                                                    participantName={participant.fullName || t('room.participant')}
-                                                    isPinned={activePinnedShareId === participant.participantId}
-                                                    onTogglePin={() => setPinnedShareId(current => current === participant.participantId ? null : participant.participantId)}
-                                                    canPin={screenShareParticipants.length > 1}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Bottom thumbnails for additional shared screens */}
-                                    {additionalScreenShares.length > 0 && (
-                                        <div className="shrink-0 flex gap-2 overflow-x-auto pb-1 px-1" aria-label="Other shared screens">
-                                            {additionalScreenShares.map(({participant, stream}) => {
-                                                const isPinned = activePinnedShareId === participant.participantId
-                                                return (
-                                                    <button
-                                                        type="button"
-                                                        key={participant.participantId}
-                                                        className="relative h-20 aspect-video shrink-0 rounded-xl overflow-hidden cursor-pointer ring-1 ring-white/10 transition-all duration-200 hover:ring-brand/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand group"
-                                                        onClick={() => setPinnedShareId(current => current === participant.participantId ? null : participant.participantId)}
-                                                        aria-label={`Pin ${participant.fullName || t('room.participant')}'s screen`}
-                                                        title="Pin"
-                                                    >
-                                                        <video
-                                                            autoPlay playsInline muted
-                                                            className="w-full h-full object-contain"
-                                                            ref={el => {
-                                                                if (el) el.srcObject = stream
-                                                            }}
-                                                        />
-                                                        {isPinned && (
-                                                            <div className="absolute top-1 right-1 bg-brand/90 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
-                                                                PIN
-                                                            </div>
-                                                        )}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div
-                                    className="flex-1 flex flex-col items-center justify-center p-3 md:p-4 overflow-hidden">
-                                    <div
-                                        className="w-full h-full max-w-[1600px] grid gap-3 md:gap-4 place-items-center flex-1 min-h-0"
-                                        style={{
-                                            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                                            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-                                        }}
-                                    >
-                                        {pageParticipants.map((p, idx) => {
-                                            const centerLast = pageParticipants.length === 3 && cols === 2 && rows === 2 && idx === 2
-                                            return p.type === 'local' ? (
-                                                <div key="local"
-                                                     className={`relative w-full h-full max-w-full max-h-full aspect-video flex items-center justify-center bg-card/80 rounded-2xl overflow-hidden shadow-lg ring-1 ring-brand/20 ${centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}`}>
-                                                    <video
-                                                        autoPlay
-                                                        playsInline
-                                                        muted
-                                                        className={`w-full h-full object-cover transition-opacity duration-300 ${
-                                                            isVideoStopped ? 'opacity-0' : 'opacity-100'
-                                                        } scale-x-[-1]`}
-                                                        ref={setLocalVideoRef}
-                                                    />
-
-                                                    {isVideoStopped && (
-                                                        <ThumbnailFallback avatarUrl={localAvatarUrl} name={displayName}
-                                                                           imgSize="w-32 h-32 md:w-75 md:h-75"
-                                                                           iconSize="w-12 h-12 md:w-16 md:h-16"
-                                                                           iconCircleSize="w-24 h-24 md:w-32 md:h-32"/>
-                                                    )}
-
-                                                    <div
-                                                        className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
-                                                        <div
-                                                            className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-md">
-                                                            <p className="text-xs font-semibold text-black leading-tight">{displayName}</p>
-                                                            {displayUsername && (
-                                                                <p className="text-[10px] text-black/60 leading-tight">{displayUsername}</p>
-                                                            )}
-                                                        </div>
-                                                        {isHandRaised && (
-                                                            <div
-                                                                className="bg-amber-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                                                                <Hand className="w-3 h-3"/>
-                                                            </div>
-                                                        )}
-                                                        {isAudioMuted && (
-                                                            <div
-                                                                className="bg-red-500/90 backdrop-blur-md p-1.5 rounded-full shadow-md text-white">
-                                                                <MicOff className="w-3 h-3"/>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <RemoteVideo key={p.id} stream={p.stream!} info={p.info!}
-                                                             className={centerLast ? 'col-span-2 justify-self-center w-1/2' : ''}/>
-                                            )
-                                        })}
-                                    </div>
-                                    {totalGridPages > 1 && (
-                                        <div className="shrink-0 flex items-center justify-center gap-3 pt-2">
-                                            <button
-                                                onClick={() => setGridPage(p => Math.max(0, p - 1))}
-                                                disabled={safeGridPage === 0}
-                                                className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                                            >
-                                                <ChevronLeft className="w-4 h-4"/>
-                                            </button>
-                                            <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                                                {safeGridPage + 1} / {totalGridPages}
-                                            </span>
-                                            <button
-                                                onClick={() => setGridPage(p => Math.min(totalGridPages - 1, p + 1))}
-                                                disabled={safeGridPage === totalGridPages - 1}
-                                                className="flex items-center justify-center w-8 h-8 rounded-full bg-card/80 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                                            >
-                                                <ChevronRight className="w-4 h-4"/>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {isRoomScreenSharing && isPeopleCollapsed && (
-                                <div className="shrink-0 flex justify-center pb-3">
-                                    <button
-                                        onClick={() => setIsPeopleCollapsed(false)}
-                                        className="flex items-center gap-2 bg-card/80 backdrop-blur-xl border border-border/40 hover:bg-card transition-all duration-200 rounded-full px-4 py-2 text-xs font-medium text-muted-foreground shadow-lg hover:shadow-xl active:scale-95"
-                                    >
-                                        <ChevronUp className="w-4 h-4"/>
-                                        <Users className="w-4 h-4"/>
-                                        {t('room.show_people')} ({Object.keys(remoteParticipants).length + 1})
-                                    </button>
-                                </div>
-                            )}
-
-                            {isRoomScreenSharing && isSidebarOpen && !isPeopleCollapsed && renderPeopleThumbnails('flex-[0.28] min-h-0', true)}
-                        </main>
-
-                        <div
-                            className={`shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isRightPanelVisible ? 'w-80' : 'w-0'}`}>
-                            <div className="h-full p-2">
-                                <aside
-                                    className="h-full bg-card border border-border/60 rounded-2xl shadow-lg flex flex-col overflow-hidden">
-
-                                    {showEnhancePanel && (
-                                        <div className="flex flex-col overflow-hidden flex-1 min-h-0">
-                                            <div
-                                                className="flex items-center justify-between px-6 py-5 border-b border-border/30 shrink-0">
-                                                <span
-                                                    className="text-sm font-medium text-foreground/80 flex items-center gap-2.5">
-                                                    <Palette className="w-4 h-4 text-foreground/50"/>
-                                                    {t('room.enhance_title')}
-                                                </span>
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={() => setEnhanceConfig(c => ({
-                                                            ...c,
-                                                            enabled: !c.enabled
-                                                        }))}
-                                                        className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.enabled ? 'bg-brand' : 'bg-muted-foreground/20'}`}
-                                                    >
-                                                        <span
-                                                            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.enabled ? 'translate-x-[1.125rem]' : ''}`}/>
-                                                    </button>
-                                                    <Button variant="ghost" size="icon"
-                                                            onClick={() => setShowEnhancePanel(false)}
-                                                            className="rounded-lg w-7 h-7 text-muted-foreground/40 hover:text-foreground">
-                                                        <X className="w-3.5 h-3.5"/>
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
-                                                <div className="space-y-5">
-                                                    <span
-                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_wb')}</span>
-                                                    <div className="space-y-5">
-                                                        <div className="flex items-center justify-between">
-                                                            <span
-                                                                className="text-sm text-foreground/60 flex items-center gap-2.5">
-                                                                <Thermometer className="w-4 h-4 text-foreground/35"/>
-                                                                {t('room.enhance_awb_auto')}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => setEnhanceConfig(c => ({
-                                                                    ...c,
-                                                                    autoWhiteBalance: !c.autoWhiteBalance
-                                                                }))}
-                                                                className={`relative w-9 h-5 rounded-full transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'bg-brand' : 'bg-muted-foreground/20'}`}
-                                                            >
-                                                                <span
-                                                                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300 ${enhanceConfig.autoWhiteBalance ? 'translate-x-[1.125rem]' : ''}`}/>
-                                                            </button>
-                                                        </div>
-                                                        {!enhanceConfig.autoWhiteBalance && (
-                                                            <SliderControl label={t('room.enhance_wb')}
-                                                                           value={enhanceConfig.whiteBalance} min={-1}
-                                                                           max={1} step={0.05}
-                                                                           onChange={v => setEnhanceConfig(c => ({
-                                                                               ...c,
-                                                                               whiteBalance: v
-                                                                           }))}
-                                                                           icon={<Thermometer
-                                                                               className="w-4 h-4 text-foreground/35"/>}/>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-5">
-                                                    <span
-                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">{t('room.enhance_title')}</span>
-                                                    <div className="space-y-5">
-                                                        <SliderControl label={t('room.enhance_brightness')}
-                                                                       value={enhanceConfig.brightness} min={-0.5}
-                                                                       max={0.5} step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           brightness: v
-                                                                       }))} icon={<Sun
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                        <SliderControl label={t('room.enhance_contrast')}
-                                                                       value={enhanceConfig.contrast} min={0.5} max={2}
-                                                                       step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           contrast: v
-                                                                       }))} icon={<Contrast
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                        <SliderControl label={t('room.enhance_gamma')}
-                                                                       value={enhanceConfig.gamma} min={0.5} max={2.5}
-                                                                       step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           gamma: v
-                                                                       }))} icon={<SlidersHorizontal
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                        <SliderControl label={t('room.enhance_saturation')}
-                                                                       value={enhanceConfig.saturation} min={0} max={2}
-                                                                       step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           saturation: v
-                                                                       }))} icon={<Palette
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-5">
-                                                    <span
-                                                        className="block text-[11px] font-medium text-foreground/40 tracking-wider uppercase">Detalles</span>
-                                                    <div className="space-y-5">
-                                                        <SliderControl label={t('room.enhance_sharpness')}
-                                                                       value={enhanceConfig.sharpness} min={0} max={1.5}
-                                                                       step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           sharpness: v
-                                                                       }))} icon={<Sparkles
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                        <SliderControl label={t('room.enhance_denoise')}
-                                                                       value={enhanceConfig.denoise} min={0} max={1}
-                                                                       step={0.05}
-                                                                       onChange={v => setEnhanceConfig(c => ({
-                                                                           ...c,
-                                                                           denoise: v
-                                                                       }))} icon={<Droplets
-                                                            className="w-4 h-4 text-foreground/35"/>}/>
-                                                    </div>
-                                                </div>
-
-                                                <div className="pt-1">
-                                                    <button
-                                                        onClick={() => setEnhanceConfig({
-                                                            ...DEFAULT_ENHANCEMENT,
-                                                            enabled: enhanceConfig.enabled
-                                                        })}
-                                                        className="flex items-center gap-1.5 text-xs text-foreground/30 hover:text-foreground/60 transition-colors"
-                                                    >
-                                                        <RotateCcw className="w-3.5 h-3.5"/>
-                                                        {t('room.enhance_reset')}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div
-                                        className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarOpen ? 'flex-1 min-h-0' : 'h-0'}`}>
-                                        <div
-                                            className="flex items-center justify-between p-4 border-b border-border/40 shrink-0">
-                                            <h3 className="font-semibold flex items-center gap-2">
-                                                <Users className="w-4 h-4 text-brand"/>
-                                                {t('room.participants')} ({totalParticipants})
-                                            </h3>
-                                            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)}
-                                                    className="rounded-full w-8 h-8 shrink-0">
-                                                <X className="w-4 h-4"/>
-                                            </Button>
-                                        </div>
-
-                                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                            <div
-                                                className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 border border-border/50">
-                                                <div
-                                                    className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
-                                                    {localAvatarUrl ? (
-                                                        <img src={localAvatarUrl} alt={displayName}
-                                                             className="w-full h-full object-cover"/>
-                                                    ) : (
-                                                        <User className="w-5 h-5 text-brand"/>
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium truncate">
-                                                        {displayName}
-                                                        <span
-                                                            className="text-[10px] bg-brand/20 text-brand px-1.5 py-0.5 rounded ml-1 whitespace-nowrap">{t('room.you')}</span>
-                                                    </p>
-                                                    {displayUsername &&
-                                                        <p className="text-xs text-muted-foreground truncate">{displayUsername}</p>}
-                                                </div>
-                                                {isHandRaised && <Hand className="w-4 h-4 text-amber-500 shrink-0"/>}
-                                                {isAudioMuted && <MicOff className="w-4 h-4 text-red-500 shrink-0"/>}
-                                            </div>
-
-                                            {Object.values(remoteParticipants).map((info) => {
-                                                const remoteName = info.fullName || t('room.participant')
-                                                const remoteUsername = info.username ? `@${info.username}` : ''
-                                                return (
-                                                    <div key={info.socketId} className="flex items-center gap-3 p-2">
-                                                        <div
-                                                            className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-semibold overflow-hidden shrink-0">
-                                                            {info.avatarUrl ? (
-                                                                <img src={info.avatarUrl} alt={remoteName}
-                                                                     className="w-full h-full object-cover"/>
-                                                            ) : (
-                                                                <User className="w-5 h-5 text-brand"/>
-                                                            )}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="text-sm font-medium truncate">{remoteName}</p>
-                                                            {remoteUsername &&
-                                                                <p className="text-xs text-muted-foreground truncate">{remoteUsername}</p>}
-                                                        </div>
-                                                        {info.isHandRaised &&
-                                                            <Hand className="w-4 h-4 text-amber-500 shrink-0"/>}
-                                                        {info.isAudioMuted &&
-                                                            <MicOff className="w-4 h-4 text-red-500 shrink-0"/>}
-                                                    </div>
-                                                )
-                                            })}
-
-                                            {requests.length > 0 && (
-                                                <div className="pt-4 space-y-3">
-                                                    <div className="flex items-center gap-2 px-2">
-                                                        <ShieldAlert className="w-4 h-4 text-amber-500"/>
-                                                        <span
-                                                            className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
-                                                            {t('room.join_requests')}
-                                                        </span>
-                                                    </div>
-                                                    {requests.map((req) => (
-                                                        <div key={req.id}
-                                                             className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 space-y-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div
-                                                                    className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 font-semibold overflow-hidden shrink-0">
-                                                                    <span
-                                                                        className="text-sm">{req.guest_name.slice(0, 2).toUpperCase()}</span>
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="text-sm font-medium truncate">{req.guest_name}</p>
-                                                                </div>
-                                                            </div>
-                                                            <p className="text-[11px] text-muted-foreground leading-relaxed bg-card/50 p-2 rounded-md border border-border/30">
-                                                                {t('room.guest_warning')}
-                                                            </p>
-                                                            <div className="flex gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="default"
-                                                                    onClick={() => approveRequest(req.id)}
-                                                                    className="flex-1 h-8 text-xs rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                                                                >
-                                                                    <Check className="w-3.5 h-3.5 mr-1"/>
-                                                                    {t('room.guest_approve')}
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="destructive"
-                                                                    onClick={() => rejectRequest(req.id)}
-                                                                    className="flex-1 h-8 text-xs rounded-lg"
-                                                                >
-                                                                    <X className="w-3.5 h-3.5 mr-1"/>
-                                                                    {t('room.guest_reject')}
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="p-4 border-t border-border/40 shrink-0">
-                                            <Button
-                                                onClick={handleCopyUrl}
-                                                className={`w-full gap-2 rounded-xl transition-all duration-300 ${isUrlCopied ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-brand hover:bg-brand/90 text-primary-foreground'}`}
-                                            >
-                                                {isUrlCopied ? (
-                                                    <><Check className="w-4 h-4"/> {t('room.copied')}</>
-                                                ) : (
-                                                    <><Share2 className="w-4 h-4"/> {t('room.share_url')}</>
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {isRoomScreenSharing && !isSidebarOpen && !isPeopleCollapsed && !showEnhancePanel && renderPeopleThumbnails()}
-                                </aside>
-                            </div>
-                        </div>
-                    </div>
-
-                    <footer
-                        className="shrink-0 flex items-center justify-center bg-background/80 backdrop-blur-xl border-t border-border/40 h-16 relative">
-                        <div className="flex items-center gap-3">
-                            <Button
-                                size="icon-lg"
-                                variant={isAudioMuted ? 'destructive' : 'secondary'}
-                                onClick={handleToggleAudio}
-                                className="rounded-xl transition-all duration-200 active:scale-90"
-                            >
-                                {isAudioMuted ? <MicOff className="w-5 h-5"/> : <Mic className="w-5 h-5"/>}
-                            </Button>
-                            <Button
-                                size="icon-lg"
-                                variant={isVideoStopped ? 'destructive' : 'secondary'}
-                                onClick={handleToggleVideo}
-                                className="rounded-xl transition-all duration-200 active:scale-90"
-                            >
-                                {isVideoStopped ? <CameraOff className="w-5 h-5"/> : <Camera className="w-5 h-5"/>}
-                            </Button>
-
-                            <Button
-                                size="icon-lg"
-                                variant={isScreenSharing ? 'default' : 'secondary'}
-                                onClick={handleToggleScreenShare}
-                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isScreenSharing ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
-                            >
-                                {isScreenSharing ? <StopCircle className="w-5 h-5"/> : <MonitorUp className="w-5 h-5"/>}
-                            </Button>
-
-                            <Button
-                                size="icon-lg"
-                                variant={isHandRaised ? 'default' : 'secondary'}
-                                onClick={handleToggleHand}
-                                className={`rounded-xl transition-all duration-200 active:scale-90 ${isHandRaised ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30' : ''}`}
-                            >
-                                <Hand className="w-5 h-5"/>
-                            </Button>
-
-                            <Button
-                                size="icon-lg"
-                                variant={showEnhancePanel ? 'default' : 'secondary'}
-                                onClick={() => {
-                                    setShowEnhancePanel(v => !v);
-                                    setIsSidebarOpen(false)
-                                }}
-                                className={`rounded-xl transition-all duration-200 active:scale-90 ${showEnhancePanel ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
-                                title={t('room.enhance_toggle')}
-                            >
-                                <Palette className="w-5 h-5"/>
-                            </Button>
-
-                            <div className="relative" ref={pickerRef}>
-                                <Button
-                                    size="icon-lg"
-                                    variant={showReactionPicker ? 'default' : 'secondary'}
-                                    onClick={() => setShowReactionPicker(!showReactionPicker)}
-                                    className={`rounded-xl transition-all duration-200 active:scale-90 ${showReactionPicker ? 'bg-brand text-primary-foreground shadow-lg shadow-brand/30' : ''}`}
-                                    title={t('room.react')}
-                                >
-                                    <SmilePlus className="w-5 h-5"/>
-                                </Button>
-                                {showReactionPicker && (
-                                    <div
-                                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-card/95 backdrop-blur-xl border border-border/40 rounded-2xl shadow-2xl p-2 flex gap-1.5 z-10">
-                                        {EMOJI_LIST.map(({emoji, label}) => (
-                                            <button
-                                                key={emoji}
-                                                onClick={() => handleReact(emoji)}
-                                                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-muted/80 transition-all duration-150 active:scale-90 hover:scale-110"
-                                            >
-                                                <img
-                                                    src={getEmojiUrl(emoji)}
-                                                    alt={label}
-                                                    aria-label={emoji}
-                                                    draggable={false}
-                                                    className="w-7 h-7"
-                                                />
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <span className="w-px h-8 bg-border/60 mx-1"/>
-
-                            <div className="relative">
-                                <Button
-                                    size="icon-lg"
-                                    variant={isSidebarOpen ? 'default' : 'secondary'}
-                                    onClick={() => {
-                                        setIsSidebarOpen(!isSidebarOpen);
-                                        setShowEnhancePanel(false)
-                                    }}
-                                    className={`rounded-xl transition-all duration-200 active:scale-90 ${isSidebarOpen ? 'bg-brand text-primary-foreground' : ''}`}
-                                >
-                                    <Users className="w-5 h-5"/>
-                                </Button>
-                                {requests.length > 0 && !isSidebarOpen && (
-                                    <span
-                                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center shadow-md">
-                                        {requests.length}
-                                    </span>
-                                )}
-                            </div>
-
-                            <span className="w-px h-8 bg-border/60 mx-1"/>
-                            <Button
-                                size="lg"
-                                variant="destructive"
-                                onClick={handleLeaveRoom}
-                                className="rounded-xl px-6 gap-2 shadow-lg shadow-destructive/20 transition-all duration-200 hover:shadow-destructive/30 active:scale-95"
-                            >
-                                <PhoneOff className="w-5 h-5"/>
-                                {t('room.leave')}
-                            </Button>
-                        </div>
-                    </footer>
-                </div>
+                <Control icon={Palette} label={es ? 'Imagen' : 'Image'} active={panel === 'effects'} onClick={() => openPanel('effects')}/>
+                <span className="meeting-control-divider"/>
+                <Control icon={PhoneOff} label={es ? 'Salir' : 'Leave'} danger onClick={leave}/>
             </div>
-
-            {allReactions.length > 0 && (
-                <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
-                    {allReactions.map(r => (
-                        <div
-                            key={r.id}
-                            className="absolute animate-reaction leading-none"
-                            style={{bottom: `calc(1rem + ${r.y}px)`, left: `calc(120px + ${r.x}px)`}}
-                        >
-                            <img
-                                src={getEmojiUrl(r.emoji)}
-                                alt={r.emoji}
-                                draggable={false}
-                                style={{width: r.size + 'px', height: r.size + 'px'}}
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {(isSidebarOpen || showEnhancePanel) && (
-                <div
-                    className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
-                    onClick={() => {
-                        setIsSidebarOpen(false);
-                        setShowEnhancePanel(false)
-                    }}
-                />
-            )}
-        </div>
-    )
+            <div className="meeting-secondary-controls"><Control icon={Users} label={es ? 'Participantes' : 'People'} active={panel === 'people'} badge={requests.length} onClick={() => openPanel('people')}/><Control icon={MessageSquare} label="Chat" active={panel === 'chat'} badge={unread} onClick={() => openPanel('chat')}/></div>
+        </footer>
+        {notice && <div className="meeting-notice" role="status"><Check size={16}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label={es ? 'Cerrar aviso' : 'Dismiss notification'}><X size={15}/></button></div>}
+        <div className="meeting-floating-reactions" aria-live="off">{call.remoteReactions.map(reaction => <img key={reaction.id} className="animate-reaction" src={getEmojiUrl(reaction.emoji)} alt={reaction.emoji} style={{left: `calc(50% + ${reaction.x}px)`, bottom: `${reaction.y}px`, width: reaction.size, height: reaction.size}}/>)}</div>
+        {Object.entries(call.remoteStreams).map(([id, stream]) => <RemoteAudio key={id} stream={stream} onBlocked={onAudioBlocked}/>)}
+    </div>
 }
