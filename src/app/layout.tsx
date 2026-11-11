@@ -4,6 +4,7 @@ import "./globals.css";
 import {cn} from "@/lib/utils";
 import {ThemeScript} from "@/components/theme/theme-script";
 import {SystemI18nProvider} from "@/components/i18n/i18n-provider";
+import {PortfolioWelcome} from "@/components/guest/portfolio-welcome";
 
 const jetbrainsMono = JetBrains_Mono({subsets: ['latin'], variable: '--font-mono'});
 
@@ -34,7 +35,7 @@ export default function RootLayout({
         >
         <body className="min-h-full flex flex-col">
         <ThemeScript/>
-        <SystemI18nProvider>{children}</SystemI18nProvider>
+        <SystemI18nProvider>{children}<PortfolioWelcome/></SystemI18nProvider>
         </body>
         </html>
     );
