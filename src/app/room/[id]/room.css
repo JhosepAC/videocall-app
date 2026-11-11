@@ -27,6 +27,7 @@
 .meeting-room h1, .meeting-room h2, .meeting-room h3, .meeting-room p { margin: 0; }
 .meeting-header { height: 76px; flex-shrink: 0; display: flex; align-items: center; gap: 26px; padding: 0 28px; border-bottom: 1px solid #242424; }
 .meeting-brand { display: flex; align-items: center; gap: 11px; font-size: 19px; font-weight: 600; letter-spacing: -.7px; text-decoration: none; color: inherit; }
+.meeting-guest-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--meeting-line); color: var(--meeting-muted); font-size: 11px; letter-spacing: .02em; white-space: nowrap; }
 .meeting-heading { border-left: 1px solid var(--meeting-line); padding-left: 26px; min-width: 0; }
 .meeting-heading h1 { font-size: 14px; font-weight: 550; }
 .meeting-heading button { display: flex; align-items: center; gap: 8px; max-width: 300px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--meeting-muted); font-size: 12px; }

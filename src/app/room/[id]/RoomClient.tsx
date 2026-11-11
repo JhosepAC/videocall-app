@@ -87,14 +87,21 @@ const SLIDERS: {key: keyof Omit<EnhancementConfig, 'enabled' | 'autoWhiteBalance
     {key: 'denoise', es: 'Reducción de ruido', en: 'Noise reduction', min: 0, max: 1},
 ]
 
-export default function RoomClient({roomId}: {roomId: string}) {
+export default function RoomClient({roomId, guestIdentity = null}: {
+    roomId: string
+    guestIdentity?: {id: string; displayName: string} | null
+}) {
     const router = useRouter()
     const {locale, t} = useI18n()
     const es = locale === 'es'
     const media = useLocalMediaStream()
     const [profile, setProfile] = useState<{userId: string; fullName: string; username: string; avatarUrl: string | null} | null>(null)
-    const [auth, setAuth] = useState<'loading' | 'member' | 'guest' | 'error'>('loading')
-    const [guest, setGuest] = useState<{userId: string; fullName: string; username: string; avatarUrl: string | null} | null>(null)
+    const [auth, setAuth] = useState<'loading' | 'member' | 'guest' | 'error'>(guestIdentity ? 'guest' : 'loading')
+    const [guest, setGuest] = useState<{userId: string; fullName: string; username: string; avatarUrl: string | null} | null>(
+        guestIdentity ? {userId: `guest-${guestIdentity.id}`, fullName: guestIdentity.displayName, username: '', avatarUrl: null} : null
+    )
+    const portfolioGuest = Boolean(guestIdentity)
+    const exitPath = portfolioGuest || auth === 'member' ? '/dashboard' : '/'
     const [hand, setHand] = useState(false)
     const [panel, setPanel] = useState<Panel>(null)
     const [page, setPage] = useState(0)
@@ -150,6 +157,7 @@ export default function RoomClient({roomId}: {roomId: string}) {
                 const {data} = await supabase.from('profiles').select('full_name, username, avatar_url').eq('id', user.id).single()
                 if (!active) return
                 setProfile({userId: user.id, fullName: data?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || (es ? 'Participante' : 'Participant'), username: data?.username || '', avatarUrl: data?.avatar_url || null})
+                setGuest(null)
                 setAuth('member')
             } catch { if (active) setAuth('error') }
         }
@@ -186,8 +194,8 @@ export default function RoomClient({roomId}: {roomId: string}) {
         if (panel === 'chat') chatEndRef.current?.scrollIntoView({block: 'end'})
     }, [call.messages, panel])
     useEffect(() => {
-        if (call.roomEnded) router.push(auth === 'guest' ? '/' : '/dashboard')
-    }, [call.roomEnded, router, auth])
+        if (call.roomEnded) router.push(exitPath)
+    }, [call.roomEnded, router, exitPath])
     useEffect(() => {
         const previous = previousParticipants.current
         const next = new Map(call.roomState.participants.map(person => [person.participantId, person]))
@@ -240,7 +248,7 @@ export default function RoomClient({roomId}: {roomId: string}) {
         else setNotice(es ? 'No se pudo confirmar el mensaje. El texto sigue aquí para reintentarlo.' : 'Message was not confirmed. Your text is here to retry.')
         setSending(false)
     }
-    const leave = () => { media.stopScreenShare(); call.leaveRoom(); router.push(auth === 'guest' ? '/' : '/dashboard') }
+    const leave = () => { media.stopScreenShare(); call.leaveRoom(); router.push(exitPath) }
     const endForEveryone = async () => {
         if (!window.confirm(es ? '¿Finalizar la reunión para todos?' : 'End the meeting for everyone?')) return
         if (!await call.endRoom()) setNotice(es ? 'No se pudo finalizar la reunión. Reintenta cuando se restablezca la conexión.' : 'Could not end the meeting. Retry when connected.')
@@ -276,6 +284,7 @@ export default function RoomClient({roomId}: {roomId: string}) {
     return <div className="meeting-room" lang={locale}>
         <header className="meeting-header">
             <Link className="meeting-brand" href="/" aria-label="MeetMesh"><svg width="29" height="24" viewBox="0 0 29 24" fill="none" aria-hidden="true"><rect x="1" y="2" width="18" height="18" rx="6" stroke="currentColor" strokeWidth="1.7"/><rect x="10" y="5" width="18" height="18" rx="6" stroke="currentColor" strokeWidth="1.7"/></svg><span>MeetMesh</span></Link>
+            {portfolioGuest && <span className="meeting-guest-badge">{es ? 'Invitado' : 'Guest'}</span>}
             <div className="meeting-heading"><h1>{es ? 'Sala de reunión' : 'Meeting room'}</h1><button onClick={() => void copy(false)} title={es ? 'Copiar código' : 'Copy room code'}>{roomId}<Copy size={12}/></button></div>
             <div className="meeting-header-status" role="status" data-status={call.connectionStatus}><span className="meeting-status-dot"/>{connectionLabel}<span className="meeting-duration">{duration}</span></div>
             <button className="meeting-invite" onClick={() => void copy(true)}><Share2 size={16}/><span>{es ? 'Invitar' : 'Invite'}</span></button>
@@ -310,7 +319,7 @@ export default function RoomClient({roomId}: {roomId: string}) {
                         <p className="meeting-panel-description">{es ? 'En esta conversación' : 'In this conversation'}</p>
                         <ul className="meeting-people">{tiles.map(({id, local, person}) => <li key={id} data-participant-id={id} data-audio-muted={local ? media.isAudioMuted : person?.isAudioMuted} data-video-muted={local ? media.isVideoStopped : person?.isVideoMuted} data-hand-raised={local ? hand : person?.isHandRaised}>
                             <span className="meeting-person-avatar">{(local ? userInfo.avatarUrl : person?.avatarUrl) ? <img src={(local ? userInfo.avatarUrl : person?.avatarUrl)!} alt=""/> : (local ? userInfo.fullName : person?.fullName)?.slice(0, 1).toUpperCase()}</span>
-                            <span className="meeting-person-name"><strong>{local ? userInfo.fullName : person?.fullName}{local && ` (${es ? 'tú' : 'you'})`}</strong><small>{!local && !person?.isConnected ? (es ? 'Reconectando…' : 'Reconnecting…') : person?.isHost ? (es ? 'Anfitrión' : 'Host') : (es ? 'Participante' : 'Participant')}</small></span>
+                            <span className="meeting-person-name"><strong>{local ? userInfo.fullName : person?.fullName}{local && ` (${es ? 'tú' : 'you'})`}</strong><small>{!local && !person?.isConnected ? (es ? 'Reconectando…' : 'Reconnecting…') : local && portfolioGuest ? (es ? 'Invitado' : 'Guest') : person?.isHost ? (es ? 'Anfitrión' : 'Host') : (es ? 'Participante' : 'Participant')}</small></span>
                             {(local ? hand : person?.isHandRaised) && <Hand size={16} className="meeting-hand"/>}
                             {(local ? media.isAudioMuted : person?.isAudioMuted) ? <MicOff size={16}/> : <Mic size={16}/>}
                             {(local ? media.isVideoStopped : person?.isVideoMuted) ? <VideoOff size={16}/> : <Video size={16}/>}

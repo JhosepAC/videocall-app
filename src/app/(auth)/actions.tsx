@@ -2,7 +2,23 @@
 
 import {revalidatePath} from 'next/cache'
 import {redirect} from 'next/navigation'
+import {cookies} from 'next/headers'
 import {createClient} from '@/lib/supabase/server'
+import {GUEST_COOKIE_NAME} from '@/lib/guest/session'
+import {clearGuestSessionCookie} from '@/lib/guest/server'
+import {logGuestEvent} from '@/lib/guest/analytics'
+
+async function clearGuestAfterAuthentication(): Promise<void> {
+    try {
+        const store = await cookies()
+        if (store.get(GUEST_COOKIE_NAME)) {
+            logGuestEvent('guest_converted_to_user', {reason: 'authentication'})
+        }
+        await clearGuestSessionCookie()
+    } catch {
+        // Middleware clears any leftover cookie on the next request.
+    }
+}
 
 export async function login(
     _prevState: { error: string } | null,
@@ -58,6 +74,8 @@ export async function login(
         .select('full_name, username')
         .eq('id', user?.id)
         .single()
+
+    await clearGuestAfterAuthentication()
 
     if (!profile?.full_name || !profile?.username) {
         revalidatePath('/', 'layout')
@@ -117,6 +135,7 @@ export async function signup(
     await supabase.from('profiles').upsert({id: data.user!.id})
 
     if (data.session) {
+        await clearGuestAfterAuthentication()
         redirect('/complete-profile')
     }
 

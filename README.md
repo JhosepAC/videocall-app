@@ -166,6 +166,8 @@ The app requires a separate Socket.IO signaling server to relay WebRTC handshake
 | `NEXT_PUBLIC_SIGNALING_SERVER_URL` | Yes | Socket.IO signaling server URL |
 | `NEXT_PUBLIC_APP_URL` | For email auth | App URL for redirects in auth emails |
 | `NEXT_PUBLIC_ICE_SERVERS` | Optional | JSON array of custom TURN/STUN servers (e.g. `[{"urls":"turn:...","username":"...","credential":"..."}]`) |
+| `GUEST_SESSION_SECRET` | Yes in production | HMAC secret (32+ characters) for signed guest sessions. If missing or shorter than 32 characters in production, guest creation fails closed with `503`. Generate with `openssl rand -hex 32`. |
+| `GUEST_ANALYTICS_LOG` | Optional | Set to `off` to silence `[guest-analytics]` structured logs. |
 
 ### Supabase Setup
 
@@ -177,6 +179,53 @@ The project requires a Supabase project with:
    - `join_requests` — `id` (uuid), `room_id`, `guest_id`, `guest_name`, `status`, `created_at`, `updated_at`
 3. **Storage** — `avatars` bucket for profile pictures
 4. **Realtime** — Enable on `join_requests` table for guest request subscriptions
+
+Guest access from the portfolio does **not** add database tables or Supabase users. It is a signed, HttpOnly cookie session validated by Next.js, described below.
+
+## Guest Access from the Portfolio
+
+Visitors arriving from `https://jhosep-ac.pages.dev` (any route) can explore MeetMesh without registering.
+
+### Detection
+
+The welcome offer is shown only when one of these signals is present:
+
+- `document.referrer` is HTTPS and its `URL.hostname` is exactly `jhosep-ac.pages.dev`;
+- the URL includes `?source=portfolio` (links can opt in explicitly).
+
+Both are **referral signals, not identity proofs**. `URL` parsing prevents lookalikes such as `jhosep-ac.pages.dev.ejemplo.com` or `jhosep-ac.pages.dev@evil.com` from matching. The offer is suppressed for authenticated users, existing guest sessions, and for the same tab after it has been shown once (`sessionStorage`), so reloads and internal navigation do not repeat it. The modal is never mounted over `/room/*`, `/dashboard` or `/settings`.
+
+### Session model
+
+- `POST /api/guest/session` validates the same-origin request, the referral signal, the absence of a Supabase user and a per-IP rate limit (8/hour), then issues a stateless HMAC-SHA256 token.
+- The token is stored in `mm_guest_session`: `HttpOnly`, `Secure` in production, `SameSite=Lax`, `Path=/`, 2-hour expiry.
+- The payload contains only a guest id, a session id, issue/expiry timestamps and `origin: "portfolio"`. No email, IP, referrer URL or Supabase credentials are stored.
+- `GET /api/guest/session` returns the public guest identity or `{guest: null, expired: true}` and clears invalid cookies.
+- `DELETE /api/guest/session` closes the session.
+- `src/middleware.ts` verifies the cookie on every request and deletes it when it is expired, tampered with, or when a real Supabase user is present (conversion, login leftovers, stale tabs).
+- Successful login/sign-up also clears the cookie from the server action.
+
+### Permissions
+
+Guests may view the dashboard, create and join rooms, use camera/microphone, chat, reactions, raise hand and screen share. They cannot edit profiles, upload avatars, change passwords, save settings or convert automatically. Settings renders a dedicated read-only view with a registration invitation. `POST /api/create-room` accepts either a Supabase user or a verified guest session; direct anonymous visitors keep the existing join-request lobby in `/room/[id]`.
+
+The signaling server still trusts client-provided participant identity; server-enforced room authorization is a separate hardening step. Guest permissions are enforced in the Next.js layer and the guest has no Supabase token, so no Supabase RLS policy can be bypassed.
+
+### Events
+
+No analytics provider exists in the project, so funnel events are emitted as structured server logs prefixed with `[guest-analytics]`:
+
+`portfolio_referral_detected`, `guest_modal_displayed`, `guest_access_requested`, `guest_session_created`, `guest_access_failed`, `guest_session_expired`, `guest_registration_started`, `guest_converted_to_user`, `guest_session_closed`.
+
+Client events go through `POST /api/guest/events`, which accepts an allowlist of event names and coarse fields only (`surface`, `result`, `reason`, `signal`). No personal data or tokens are logged.
+
+### Known limitations
+
+- Rate limiting is in-memory per process. Serverless instances do not share it; use Redis/Upstash for strict global limits.
+- The referral signal can be spoofed, by design: it only unlocks the lowest-privilege guest modality, never elevated permissions.
+- Guest sessions are stateless, so closing one clears the browser cookie; another tab that already has the cookie remains valid until expiry.
+- The signaling server does not verify guest identity or room ownership yet.
+
 
 ## Getting Started
 
@@ -213,6 +262,8 @@ npm run start    # next start
 ```
 
 Set all `NEXT_PUBLIC_*` environment variables in the Vercel dashboard.
+
+Also set `GUEST_SESSION_SECRET` (server-only, 32+ random characters, e.g. `openssl rand -hex 32`). Without it, production guest creation fails closed with `503 guest_unavailable`; the rest of the app keeps working. Optionally set `GUEST_ANALYTICS_LOG=off` to silence guest funnel logs.
 
 ### Signaling Server (Render / Railway / Fly.io)
 
