@@ -241,6 +241,44 @@ export const en = {
         special: 'At least one special character',
     },
 
+    guest: {
+        badge: 'Guest',
+        modal_title: 'Welcome to MeetMesh!',
+        modal_body: 'We noticed you came from our portfolio. Are you exploring the project or would you like to see how MeetMesh works?',
+        modal_note: 'You can skip registration and go straight in as a guest to explore the platform.',
+        modal_fact_rooms: 'Create and join rooms',
+        modal_fact_chat: 'Chat, reactions and screen share',
+        modal_fact_time: 'No personal data required',
+        enter: 'Continue as guest',
+        entering: 'Opening your guest session…',
+        prefer_register: 'I’d rather sign up',
+        not_now: 'Not now',
+        modal_footnote: 'Guest of MeetMesh · 2-hour session · you can create an account at any time',
+        error_rate_limited: 'The guest access limit was reached. Try again later or create an account.',
+        error_unavailable: 'Guest access is unavailable right now. You can sign up or try again.',
+        error_not_referred: 'This access is reserved for visitors arriving from the portfolio.',
+        error_generic: 'We could not open your guest session. Try again or create an account.',
+        dashboard_greeting: 'Explore MeetMesh',
+        dashboard_subtitle: 'A guest session is open. Start a room or join with a code.',
+        dashboard_notice_title: 'You are exploring as a guest',
+        dashboard_notice: 'Create an account to keep your profile, your avatar and your preferences on your next visit.',
+        register_cta: 'Create account',
+        close_session: 'End guest session',
+        closing: 'Ending…',
+        settings_subtitle: 'Guest session',
+        settings_title: 'This area needs an account',
+        settings_body: 'You are using a guest session, so account settings are read-only. You can still create rooms, join meetings and use chat.',
+        settings_allowed_title: 'Available as a guest',
+        settings_allowed_rooms: 'Create rooms and join with a code or link',
+        settings_allowed_chat: 'Chat, reactions, hand raising and screen share',
+        settings_allowed_screen: 'Camera and microphone in your meetings',
+        settings_restricted_title: 'Needs a registered account',
+        settings_restricted_profile: 'Edit your name, username or avatar',
+        settings_restricted_password: 'Change your password',
+        settings_restricted_save: 'Save preferences and keep your profile',
+        restricted_body: 'This feature requires an account. Sign up to enjoy the full MeetMesh experience.',
+    },
+
     room: {
         title: 'Meeting Room | MeetMesh',
         description: 'Secure P2P video conference. Direct real-time communication.',
@@ -366,6 +404,7 @@ export type Translations = {
         security: Record<string, string>
     }
     password_rules: Record<string, string>
+    guest: Record<string, string>
     room: Record<string, string>
     media_errors: Record<string, string>
     errors: Record<string, string>
