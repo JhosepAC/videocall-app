@@ -3,17 +3,20 @@
 import {useI18n} from '@/components/i18n/i18n-provider'
 import Link from 'next/link'
 import {useRouter} from 'next/navigation'
-import {Link as LinkIcon, Plus, Settings, Video} from 'lucide-react'
+import {ArrowRight, Link as LinkIcon, Plus, Settings, UserRound, Video} from 'lucide-react'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
+import {GuestSignOutButton} from '@/components/guest/guest-session-actions'
 import {Clock} from './clock'
 
 interface Props {
     firstName: string
     currentYear: number
+    isGuest?: boolean
+    guestExpiresAt?: string
 }
 
-export function DashboardContent({firstName, currentYear}: Props) {
+export function DashboardContent({firstName, currentYear, isGuest = false}: Props) {
     const {t} = useI18n()
     const router = useRouter()
 
@@ -28,6 +31,13 @@ export function DashboardContent({firstName, currentYear}: Props) {
                             <Video className="w-5 h-5 text-brand"/>
                         </div>
                         <span className="font-semibold text-foreground tracking-tight text-lg">MeetMesh</span>
+                        {isGuest && (
+                            <span
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                                <UserRound className="w-3 h-3"/>
+                                {t('guest.badge')}
+                            </span>
+                        )}
                     </div>
                     <Link
                         href="/settings"
@@ -42,16 +52,38 @@ export function DashboardContent({firstName, currentYear}: Props) {
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14">
                     <div className="space-y-1">
                         <h1 className="text-4xl md:text-5xl font-bold text-foreground tracking-tight">
-                            {t('dashboard.greeting')} {firstName}
+                            {isGuest ? t('guest.dashboard_greeting') : `${t('dashboard.greeting')} ${firstName}`}
                         </h1>
                         <p className="text-muted-foreground text-lg md:text-xl font-light">
-                            {t('dashboard.subtitle')}
+                            {isGuest ? t('guest.dashboard_subtitle') : t('dashboard.subtitle')}
                         </p>
                     </div>
                     <div className="shrink-0 text-right">
                         <Clock/>
                     </div>
                 </div>
+
+                {isGuest && (
+                    <section
+                        className="mb-10 flex flex-col gap-5 rounded-2xl border border-border/60 bg-card/40 p-5 sm:flex-row sm:items-center sm:justify-between max-w-4xl"
+                        aria-label={t('guest.dashboard_notice_title')}
+                    >
+                        <div className="space-y-1">
+                            <p className="text-sm font-semibold text-foreground">{t('guest.dashboard_notice_title')}</p>
+                            <p className="text-sm text-muted-foreground max-w-xl">{t('guest.dashboard_notice')}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                            <Link
+                                href="/register"
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-brand-foreground transition-all hover:bg-brand-hover"
+                            >
+                                {t('guest.register_cta')}
+                                <ArrowRight className="w-4 h-4"/>
+                            </Link>
+                            <GuestSignOutButton/>
+                        </div>
+                    </section>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl">
                     <div
